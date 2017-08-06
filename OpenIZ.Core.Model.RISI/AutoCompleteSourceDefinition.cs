@@ -15,7 +15,7 @@
  * the License.
  *
  * User: khannan
- * Date: 2016-12-4
+ * Date: 2017-1-16
  */
 
 using Newtonsoft.Json;
@@ -30,7 +30,7 @@ namespace OpenIZ.Core.Model.RISI
 	[XmlInclude(typeof(Place))]
 	[XmlInclude(typeof(Material))]
 	[XmlInclude(typeof(Organization))]
-    [JsonObject(nameof(AutoCompleteSourceDefinition))]
+	[JsonObject(nameof(AutoCompleteSourceDefinition))]
 	[XmlType(nameof(AutoCompleteSourceDefinition), Namespace = "http://openiz.org/risi")]
 	public abstract class AutoCompleteSourceDefinition : BaseEntityData
 	{

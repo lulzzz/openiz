@@ -1,23 +1,22 @@
 ﻿/*
  * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
  *
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you
- * may not use this file except in compliance with the License. You may
- * obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
  * the License.
- *
- * User: khannan
- * Date: 2017-1-5
+ * 
+ * User: justi
+ * Date: 2017-4-7
  */
-
 using MARC.HI.EHRS.SVC.Core;
 using MARC.HI.EHRS.SVC.Core.Data;
 using MARC.HI.EHRS.SVC.Core.Services;
@@ -499,7 +498,7 @@ namespace OpenIZ.Reporting.Jasper
 				}
 
 				int totalResults;
-				reportParameter.Key = ApplicationContext.Current.GetService<IDataPersistenceService<ReportParameter>>()?.Query(r => r.CorrelationId == inputControl.Uri, 0, 1, AuthenticationContext.Current.Principal, out totalResults).FirstOrDefault()?.Key;
+				reportParameter.Key = ApplicationContext.Current.GetService<IDataPersistenceService<ReportParameter>>()?.Query(r => r.CorrelationId == inputControl.Uri, 0, null, AuthenticationContext.Current.Principal, out totalResults).FirstOrDefault(r => r.CorrelationId == inputControl.Uri && r.ReportDefinitionKey == id)?.Key;
 				reportDefinition.Parameters.Add(reportParameter);
 			}
 
@@ -533,6 +532,15 @@ namespace OpenIZ.Reporting.Jasper
 			if (reportDefinitionPersistenceService == null)
 			{
 				throw new InvalidOperationException($"Unable to locate persistence service: {nameof(IDataPersistenceService<ReportDefinition>)}");
+			}
+
+			// HACK: remove existing reports to ensure we have the latest reports
+			// otherwise we'd need logic to reconcile which reports have been removed, updated etc.
+			var existingReports = reportDefinitionPersistenceService.Query(r => true, AuthenticationContext.Current.Principal);
+
+			foreach (var reportDefinition in existingReports)
+			{
+				reportDefinitionPersistenceService.Obsolete(reportDefinition, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 			}
 
 			var reports = new List<ReportDefinition>();
@@ -919,7 +927,10 @@ namespace OpenIZ.Reporting.Jasper
 
 				if (value != null)
 				{
-					builder.Append($"&{reportParameter.Name}={FromByteArray(value)}");
+					// HACK: this is because jasper doesn't know how to manage parameters...
+					var name = reportParameter.CorrelationId.Split('/').Last();
+
+					builder.Append($"{name}={FromByteArray(value)}&");
 				}
 			}
 

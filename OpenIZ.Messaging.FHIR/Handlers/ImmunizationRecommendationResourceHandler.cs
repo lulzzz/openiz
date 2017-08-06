@@ -42,7 +42,6 @@ namespace OpenIZ.Messaging.FHIR.Handlers
 	/// </summary>
 	public class ImmunizationRecommendationResourceHandler : ResourceHandlerBase<ImmunizationRecommendation, SubstanceAdministration>
 	{
-
 		/// <summary>
 		/// The repository.
 		/// </summary>
@@ -66,7 +65,7 @@ namespace OpenIZ.Messaging.FHIR.Handlers
 		/// <exception cref="System.NotImplementedException"></exception>
 		protected override SubstanceAdministration Create(SubstanceAdministration modelInstance, List<IResultDetail> issues, TransactionMode mode)
 		{
-            throw new NotSupportedException();
+			throw new NotSupportedException();
 		}
 
 		/// <summary>
@@ -78,7 +77,7 @@ namespace OpenIZ.Messaging.FHIR.Handlers
 		/// <exception cref="System.NotImplementedException"></exception>
 		protected override SubstanceAdministration Delete(Guid modelId, List<IResultDetail> details)
 		{
-            throw new NotSupportedException();
+			throw new NotSupportedException();
 		}
 
 		/// <summary>
@@ -156,11 +155,11 @@ namespace OpenIZ.Messaging.FHIR.Handlers
 		/// <returns>Returns the list of models which match the given parameters.</returns>
 		protected override IEnumerable<SubstanceAdministration> Query(Expression<Func<SubstanceAdministration, bool>> query, List<IResultDetail> issues, Guid queryId, int offset, int count, out int totalResults)
 		{
-            // TODO: Hook this up to the forecaster
-            var obsoletionReference = Expression.MakeBinary(ExpressionType.NotEqual, Expression.MakeMemberAccess(query.Parameters[0], typeof(SubstanceAdministration).GetProperty(nameof(BaseEntityData.ObsoletionTime))), Expression.Constant(null));
-            query = Expression.Lambda<Func<SubstanceAdministration, bool>>(Expression.AndAlso(obsoletionReference, query), query.Parameters);
+			// TODO: Hook this up to the forecaster
+			var obsoletionReference = Expression.MakeBinary(ExpressionType.NotEqual, Expression.MakeMemberAccess(query.Parameters[0], typeof(SubstanceAdministration).GetProperty(nameof(BaseEntityData.ObsoletionTime))), Expression.Constant(null));
+			query = Expression.Lambda<Func<SubstanceAdministration, bool>>(Expression.AndAlso(obsoletionReference, query), query.Parameters);
 
-            return this.repository.Find<SubstanceAdministration>(query, offset, count, out totalResults);
+			return this.repository.Find<SubstanceAdministration>(query, offset, count, out totalResults);
 		}
 
 		/// <summary>
@@ -185,7 +184,7 @@ namespace OpenIZ.Messaging.FHIR.Handlers
 		/// <exception cref="System.NotImplementedException"></exception>
 		protected override SubstanceAdministration Update(SubstanceAdministration model, List<IResultDetail> details, TransactionMode mode)
 		{
-            throw new NotSupportedException();
+			throw new NotSupportedException();
 		}
 	}
 }

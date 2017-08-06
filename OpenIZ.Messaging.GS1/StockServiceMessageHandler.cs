@@ -14,17 +14,20 @@
  * License for the specific language governing permissions and limitations under 
  * the License.
  * 
- * User: fyfej
- * Date: 2017-3-24
+ * User: justi
+ * Date: 2016-11-30
  */
 using MARC.HI.EHRS.SVC.Core.Services;
 using OpenIZ.Core.Interop;
 using OpenIZ.Core.Wcf;
+using OpenIZ.Core.Wcf.Behavior;
 using OpenIZ.Core.Wcf.Security;
 using OpenIZ.Messaging.GS1.Wcf;
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.ServiceModel;
 using System.ServiceModel.Description;
 using System.ServiceModel.Web;
@@ -34,6 +37,7 @@ namespace OpenIZ.Messaging.GS1
 	/// <summary>
 	/// Stock service message handler
 	/// </summary>
+    [Description("GS1 Stock Service")]
 	public class StockServiceMessageHandler : IMessageHandlerService, IApiEndpointProvider
 	{
 		// IMSI Trace host
@@ -112,7 +116,11 @@ namespace OpenIZ.Messaging.GS1
         /// </summary>
         public bool Start()
 		{
-			try
+            // Don't startup unless in OpenIZ
+            if (Assembly.GetEntryAssembly().GetName().Name != "OpenIZ")
+                return true;
+
+            try
 			{
 				this.Starting?.Invoke(this, EventArgs.Empty);
 
@@ -120,7 +128,8 @@ namespace OpenIZ.Messaging.GS1
 				foreach (ServiceEndpoint endpoint in this.webHost.Description.Endpoints)
 				{
 					this.traceSource.TraceInformation("Starting GS1 on {0}...", endpoint.Address);
-				}
+                    endpoint.EndpointBehaviors.Add(new WcfErrorEndpointBehavior());
+                }
 				// Start the webhost
 				this.webHost.Open();
 

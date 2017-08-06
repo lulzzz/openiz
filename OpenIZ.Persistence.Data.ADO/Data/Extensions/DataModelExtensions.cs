@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-8-2
+ * Date: 2017-1-21
  */
 using MARC.HI.EHRS.SVC.Core;
 using MARC.HI.EHRS.SVC.Core.Services;
@@ -61,6 +61,9 @@ namespace OpenIZ.Persistence.Data.ADO.Data
 
         // Lock object
         private static Object s_lockObject = new object();
+
+        // Constructor info
+        private static Dictionary<Type, ConstructorInfo> m_constructors = new Dictionary<Type, ConstructorInfo>();
 
         // Classification properties for autoload
         private static Dictionary<Type, PropertyInfo> s_classificationProperties = new Dictionary<Type, PropertyInfo>();
@@ -118,7 +121,7 @@ namespace OpenIZ.Persistence.Data.ADO.Data
                 existing = idpInstance.Get(context, me.Key.Value, principal) as IIdentifiedEntity;
 
             var classAtt = me.GetType().GetCustomAttribute<KeyLookupAttribute>();
-            if (classAtt != null)
+            if (classAtt != null && existing == null)
             {
 
                 // Get the domain type
@@ -396,7 +399,25 @@ namespace OpenIZ.Persistence.Data.ADO.Data
                     // We want to query based on our PK and version if applicable
                     decimal? versionSequence = (me as IBaseEntityData)?.ObsoletionTime.HasValue == true ? (me as IVersionedEntity)?.VersionSequence : null;
                     var assoc = assocPersister.GetFromSource(context, me.Key.Value, versionSequence, principal);
-                    var listValue = Activator.CreateInstance(pi.PropertyType, assoc);
+                    ConstructorInfo ci = null;
+                    if(!m_constructors.TryGetValue(pi.PropertyType, out ci))
+                    {
+                        var type = pi.PropertyType.StripGeneric();
+                        while (type != typeof(Object) && ci == null)
+                        {
+                            ci = pi.PropertyType.GetConstructor(new Type[] { typeof(IEnumerable<>).MakeGenericType(type) });
+                            type = type.BaseType;
+                        }
+                        if (ci != null)
+                        {
+                            lock (s_lockObject)
+                                if (!m_constructors.ContainsKey(pi.PropertyType))
+                                    m_constructors.Add(pi.PropertyType, ci);
+                        }
+                        else
+                            throw new InvalidOperationException($"This is odd, you seem to have a list with no constructor -> {pi.PropertyType}");
+                    }
+                    var listValue = ci.Invoke(new object[] { assoc });
                     pi.SetValue(me, listValue);
                 }
                 else if (typeof(IIdentifiedEntity).IsAssignableFrom(pi.PropertyType)) // Single

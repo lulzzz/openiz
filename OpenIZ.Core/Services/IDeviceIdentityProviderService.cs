@@ -17,7 +17,6 @@
  * User: justi
  * Date: 2016-7-7
  */
-
 using System;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Principal;
@@ -54,5 +53,12 @@ namespace OpenIZ.Core.Services
 		/// <param name="deviceCertificate">The certificate of the device used to authenticate the device.</param>
 		/// <returns>Returns the authenticated device principal.</returns>
 		IPrincipal Authenticate(X509Certificate2 deviceCertificate);
+
+		/// <summary>
+		/// Gets the identity of the device using a given device name.
+		/// </summary>
+		/// <param name="name">The name.</param>
+		/// <returns>Returns the identity of the device.</returns>
+		IIdentity GetIdentity(string name);
 	}
 }

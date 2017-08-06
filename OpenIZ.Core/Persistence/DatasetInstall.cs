@@ -26,6 +26,7 @@ using OpenIZ.Core.Model.Roles;
 using OpenIZ.Core.Model.Security;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Xml.Serialization;
 
 namespace OpenIZ.Core.Persistence
@@ -45,6 +46,15 @@ namespace OpenIZ.Core.Persistence
             this.Action = new List<DataInstallAction>();
         }
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="DatasetInstall"/> class.
+		/// </summary>
+		/// <param name="id">The identifier.</param>
+		public DatasetInstall(string id) : this()
+	    {
+		    this.Id = id;
+	    }
+
         /// <summary>
         /// Gets or sets the identifier of the dataset
         /// </summary>
@@ -58,7 +68,18 @@ namespace OpenIZ.Core.Persistence
         [XmlElement("obsolete", Type = typeof(DataObsolete))]
         [XmlElement("update", Type = typeof(DataUpdate))]
         public List<DataInstallAction> Action { get; set; }
-        
+
+        /// <summary>
+        /// Loads the specified file to dataset
+        /// </summary>
+        public static DatasetInstall Load(string datasetFile)
+        {
+            using (var fs = File.OpenRead(datasetFile))
+            {
+                XmlSerializer xs = new XmlSerializer(typeof(DatasetInstall));
+                return xs.Deserialize(fs) as DatasetInstall;
+            }
+        }
     }
 
     /// <summary>
@@ -78,8 +99,10 @@ namespace OpenIZ.Core.Persistence
 		/// </summary>
 		[XmlElement("ConceptReferenceTerm", typeof(ConceptReferenceTerm), Namespace = "http://openiz.org/model")]
 		[XmlElement("ConceptName", typeof(ConceptName), Namespace = "http://openiz.org/model")]
+		[XmlElement("EntityRelationship", typeof(EntityRelationship), Namespace = "http://openiz.org/model")]
 		[XmlElement("Concept", typeof(Concept), Namespace = "http://openiz.org/model")]
         [XmlElement("ConceptSet", typeof(ConceptSet), Namespace = "http://openiz.org/model")]
+        [XmlElement("ConceptRelationship", typeof(ConceptRelationship), Namespace = "http://openiz.org/model")]
         [XmlElement("AssigningAuthority", typeof(AssigningAuthority), Namespace = "http://openiz.org/model")]
         [XmlElement("ConceptClass", typeof(ConceptClass), Namespace = "http://openiz.org/model")]
         [XmlElement("SecurityPolicy", typeof(SecurityPolicy), Namespace = "http://openiz.org/model")]
@@ -103,6 +126,7 @@ namespace OpenIZ.Core.Persistence
         [XmlElement("SubstanceAdministration", typeof(SubstanceAdministration), Namespace = "http://openiz.org/model")]
         [XmlElement("QuantityObservation", typeof(QuantityObservation), Namespace = "http://openiz.org/model")]
         [XmlElement("CodedObservation", typeof(CodedObservation), Namespace = "http://openiz.org/model")]
+        [XmlElement("EntityIdentifier", typeof(EntityIdentifier), Namespace = "http://openiz.org/model")]
         [XmlElement("TextObservation", typeof(TextObservation), Namespace = "http://openiz.org/model")]
         [XmlElement("PatientEncounter", typeof(PatientEncounter), Namespace = "http://openiz.org/model")]
         public IdentifiedData Element { get; set; }

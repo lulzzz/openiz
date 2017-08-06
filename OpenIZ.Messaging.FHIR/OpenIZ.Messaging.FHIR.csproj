@@ -54,12 +54,18 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Handlers\AdverseEventResourceHandler.cs" />
+    <Compile Include="Handlers\AllergyIntoleranceResourceHandler.cs" />
+    <Compile Include="Handlers\ConditionResourceHandler.cs" />
+    <Compile Include="Handlers\LocationResourceHandler.cs" />
+    <Compile Include="Handlers\MedicationResourceHandler.cs" />
     <Compile Include="Handlers\RepositoryResourceHandlerBase.cs" />
     <Compile Include="Handlers\ImmunizationRecommendationResourceHandler.cs" />
     <Compile Include="Handlers\ImmunizationResourceHandler.cs" />
-    <Compile Include="Handlers\ObservationHandler.cs" />
+    <Compile Include="Handlers\ObservationResourceHandler.cs" />
     <Compile Include="Handlers\PatientResourceHandler.cs" />
     <Compile Include="Handlers\ResourceHandlerBase.cs" />
+    <Compile Include="Handlers\SubstanceResourceHandler.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Util\DataTypeConverter.cs" />
     <Compile Include="Util\FhirConstants.cs" />
@@ -88,6 +94,21 @@
   <ItemGroup>
     <None Include="..\OpenIZ.licenseheader">
       <Link>OpenIZ.licenseheader</Link>
+    </None>
+    <None Include="Data\004-FHIR-AddressUseCodes.dataset">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Data\004-FHIR-AdministrativeGenderCodes.dataset">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Data\004-FHIR-ContactPointSystemCodes.dataset">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Data\004-FHIR-ContactPointUseCodes.dataset">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Data\004-FHIR-NameUseCodes.dataset">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
   <ItemGroup>

@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-6-14
+ * Date: 2017-1-15
  */
 using MARC.HI.EHRS.SVC.Core.Services.Security;
 using System;
@@ -70,6 +70,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services
         /// <summary>
         /// Adds the specified users to the specified roles
         /// </summary>
+        [PolicyPermission(System.Security.Permissions.SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.AlterIdentity)]
         public void AddUsersToRoles(string[] users, string[] roles, IPrincipal authPrincipal)
         {
             this.VerifyPrincipal(authPrincipal, PermissionPolicyIdentifiers.AlterRoles);
@@ -121,6 +122,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services
         /// <summary>
         /// Create a role
         /// </summary>
+        [PolicyPermission(System.Security.Permissions.SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.CreateRoles)]
         public void CreateRole(string roleName, IPrincipal authPrincipal)
         {
 
@@ -167,6 +169,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services
         /// <summary>
         /// Find all users in a role
         /// </summary>
+        [PolicyPermission(System.Security.Permissions.SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.AlterRoles)]
         public string[] FindUsersInRole(string role)
         {
             using (DataContext dataContext = this.m_configuration.Provider.GetReadonlyConnection())
@@ -279,6 +282,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services
         /// <summary>
         /// Remove users from roles
         /// </summary>
+        [PolicyPermission(System.Security.Permissions.SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.AlterIdentity)]
         public void RemoveUsersFromRoles(string[] users, string[] roles, IPrincipal authPrincipal)
         {
             this.VerifyPrincipal(authPrincipal, PermissionPolicyIdentifiers.AlterRoles);

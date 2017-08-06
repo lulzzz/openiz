@@ -15,14 +15,14 @@
  * the License.
  *
  * User: khannan
- * Date: 2016-12-4
+ * Date: 2017-1-12
  */
 
-using System;
+using Newtonsoft.Json;
 using OpenIZ.Core.Model.Security;
+using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
-using Newtonsoft.Json;
 
 namespace OpenIZ.Core.Model.RISI
 {
@@ -31,8 +31,8 @@ namespace OpenIZ.Core.Model.RISI
 	/// </summary>
 	[XmlType(nameof(ReportDefinition), Namespace = "http://openiz.org/risi")]
 	[XmlRoot(nameof(ReportDefinition), Namespace = "http://openiz.org/risi")]
-    [JsonObject(nameof(ReportDefinition))]
-    public class ReportDefinition : BaseEntityData
+	[JsonObject(nameof(ReportDefinition))]
+	public class ReportDefinition : BaseEntityData
 	{
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ReportDefinition"/> class.

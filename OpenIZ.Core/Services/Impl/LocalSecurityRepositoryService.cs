@@ -34,23 +34,31 @@ using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
 using OpenIZ.Core.Model.Constants;
+using OpenIZ.Core.Interfaces;
 
 namespace OpenIZ.Core.Services.Impl
 {
 	/// <summary>
 	/// Represents a security repository service that uses the direct local services
 	/// </summary>
-	public class LocalSecurityRepositoryService : LocalEntityRepositoryServiceBase, ISecurityRepositoryService, IRepositoryService<UserEntity>
-	{
+	public class LocalSecurityRepositoryService : LocalEntityRepositoryServiceBase, ISecurityRepositoryService, IRepositoryService<UserEntity>, ISecurityAuditEventSource
+    {
 		private TraceSource m_traceSource = new TraceSource(OpenIzConstants.ServiceTraceSourceName);
 
-		/// <summary>
-		/// Changes a user's password.
-		/// </summary>
-		/// <param name="userId">The id of the user.</param>
-		/// <param name="password">The new password of the user.</param>
-		/// <returns>Returns the updated user.</returns>
-		public SecurityUser ChangePassword(Guid userId, string password)
+        /// <summary>
+        /// Indicates security attributes have changed
+        /// </summary>
+        public event EventHandler<SecurityAuditDataEventArgs> SecurityAttributesChanged;
+        public event EventHandler<SecurityAuditDataEventArgs> SecurityResourceCreated;
+        public event EventHandler<SecurityAuditDataEventArgs> SecurityResourceDeleted;
+
+        /// <summary>
+        /// Changes a user's password.
+        /// </summary>
+        /// <param name="userId">The id of the user.</param>
+        /// <param name="password">The new password of the user.</param>
+        /// <returns>Returns the updated user.</returns>
+        public SecurityUser ChangePassword(Guid userId, string password)
 		{
 			this.m_traceSource.TraceEvent(TraceEventType.Verbose, 0, "Changing user password");
 			var securityUser = this.GetUser(userId);
@@ -59,6 +67,8 @@ namespace OpenIZ.Core.Services.Impl
 			var iids = ApplicationContext.Current.GetService<IIdentityProviderService>();
 			if (iids == null) throw new InvalidOperationException("Cannot find identity provider service");
 			iids.ChangePassword(securityUser.UserName, password, AuthenticationContext.Current.Principal);
+
+            this.SecurityAttributesChanged?.Invoke(this, new SecurityAuditDataEventArgs(securityUser, "Password"));
 			return securityUser;
 		}
 
@@ -83,7 +93,9 @@ namespace OpenIZ.Core.Services.Impl
 
 			var createdApplication = persistenceService.Insert(application, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 
-			base.Insert(new ApplicationEntity
+            this.SecurityResourceCreated?.Invoke(this, new SecurityAuditDataEventArgs(createdApplication));
+
+            base.Insert(new ApplicationEntity
             {
                 SecurityApplication = createdApplication,
                 SoftwareName = application.Name,
@@ -113,6 +125,7 @@ namespace OpenIZ.Core.Services.Impl
 			device.DeviceSecret = ApplicationContext.Current.GetService<IPasswordHashingService>().EncodePassword(device.DeviceSecret);
 
 			var createdDevice = persistenceService.Insert(device, AuthenticationContext.Current.Principal, TransactionMode.Commit);
+            this.SecurityResourceCreated?.Invoke(this, new SecurityAuditDataEventArgs(createdDevice));
 
             base.Insert(new DeviceEntity
             {
@@ -141,7 +154,9 @@ namespace OpenIZ.Core.Services.Impl
 				throw new InvalidOperationException(string.Format("{0} not found", nameof(IDataPersistenceService<SecurityPolicy>)));
 			}
 
-			return persistenceService.Insert(policy, AuthenticationContext.Current.Principal, TransactionMode.Commit);
+            this.SecurityResourceCreated?.Invoke(this, new SecurityAuditDataEventArgs(policy));
+
+            return persistenceService.Insert(policy, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 		}
 
 		/// <summary>
@@ -157,7 +172,10 @@ namespace OpenIZ.Core.Services.Impl
 			var pers = ApplicationContext.Current.GetService<IDataPersistenceService<SecurityRole>>();
 			if (pers == null)
 				throw new InvalidOperationException("Misisng role provider service");
-			return pers.Insert(roleInfo, AuthenticationContext.Current.Principal, TransactionMode.Commit);
+
+            this.SecurityResourceCreated?.Invoke(this, new SecurityAuditDataEventArgs(roleInfo, "Created"));
+
+            return pers.Insert(roleInfo, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 		}
 
 		/// <summary>
@@ -201,7 +219,9 @@ namespace OpenIZ.Core.Services.Impl
 				pers.Update(retVal, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 			}
 
-			this.CreateUserEntity(new UserEntity
+            this.SecurityResourceCreated?.Invoke(this, new SecurityAuditDataEventArgs(retVal));
+
+            this.CreateUserEntity(new UserEntity
 			{
 				SecurityUserKey = retVal.Key
 			});
@@ -506,7 +526,9 @@ namespace OpenIZ.Core.Services.Impl
                 throw new InvalidOperationException(string.Format("{0} not found", nameof(IDataPersistenceService<SecurityUser>)));
             }
 
-            return persistenceService.Query(u => u.UserName == userName, AuthenticationContext.Current.Principal).FirstOrDefault();
+            var identity = ApplicationContext.Current.GetService<IIdentityProviderService>().GetIdentity(userName);
+
+            return persistenceService.Query(u => u.UserName == identity.Name, AuthenticationContext.Current.Principal).FirstOrDefault();
         }
 
         /// <summary>
@@ -553,6 +575,7 @@ namespace OpenIZ.Core.Services.Impl
 
 			var securityUser = this.GetUser(userId);
 			iids.SetLockout(securityUser.UserName, true, AuthenticationContext.Current.Principal);
+            this.SecurityAttributesChanged?.Invoke(this, new SecurityAuditDataEventArgs(securityUser, "Lockout=True"));
 		}
 
 		/// <summary>
@@ -560,7 +583,7 @@ namespace OpenIZ.Core.Services.Impl
 		/// </summary>
 		/// <param name="applicationId">The id of the application to be obsoleted.</param>
 		/// <returns>Returns the obsoleted application.</returns>
-		[PolicyPermission(System.Security.Permissions.SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.AlterIdentity)]
+		[PolicyPermission(System.Security.Permissions.SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.CreateApplication)]
 		public SecurityApplication ObsoleteApplication(Guid applicationId)
 		{
 			var persistenceService = ApplicationContext.Current.GetService<IDataPersistenceService<SecurityApplication>>();
@@ -573,7 +596,9 @@ namespace OpenIZ.Core.Services.Impl
             int t = 0;
             var appEntity = base.Find<ApplicationEntity>(o => o.SecurityApplicationKey == applicationId, 0, 1, out t, Guid.Empty).FirstOrDefault();
             base.Obsolete<ApplicationEntity>(appEntity.Key.Value);
-			return persistenceService.Obsolete(this.GetApplication(applicationId), AuthenticationContext.Current.Principal, TransactionMode.Commit);
+            var app = this.GetApplication(applicationId);
+            this.SecurityResourceDeleted?.Invoke(this, new SecurityAuditDataEventArgs(app));
+            return persistenceService.Obsolete(app, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 		}
 
 		/// <summary>
@@ -581,7 +606,7 @@ namespace OpenIZ.Core.Services.Impl
 		/// </summary>
 		/// <param name="deviceId">The id of the device to be obsoleted.</param>
 		/// <returns>Returns the obsoleted device.</returns>
-		[PolicyPermission(System.Security.Permissions.SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.AlterIdentity)]
+		[PolicyPermission(System.Security.Permissions.SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.CreateDevice)]
 		public SecurityDevice ObsoleteDevice(Guid deviceId)
 		{
 			var persistenceService = ApplicationContext.Current.GetService<IDataPersistenceService<SecurityDevice>>();
@@ -595,7 +620,9 @@ namespace OpenIZ.Core.Services.Impl
             var devEntity = base.Find<DeviceEntity>(o => o.SecurityDeviceKey == deviceId, 0, 1, out t, Guid.Empty).FirstOrDefault();
             base.Obsolete<DeviceEntity>(devEntity.Key.Value);
 
-            return persistenceService.Obsolete(this.GetDevice(deviceId), AuthenticationContext.Current.Principal, TransactionMode.Commit);
+            var dev = this.GetDevice(deviceId);
+            this.SecurityResourceDeleted?.Invoke(this, new SecurityAuditDataEventArgs(dev));
+            return persistenceService.Obsolete(dev, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 		}
 
 		/// <summary>
@@ -613,7 +640,9 @@ namespace OpenIZ.Core.Services.Impl
 				throw new InvalidOperationException(string.Format("{0} not found", nameof(IDataPersistenceService<SecurityPolicy>)));
 			}
 
-			return persistenceService.Obsolete(this.GetPolicy(policyId), AuthenticationContext.Current.Principal, TransactionMode.Commit);
+            var pol = this.GetPolicy(policyId);
+            this.SecurityResourceDeleted?.Invoke(this, new SecurityAuditDataEventArgs(pol));
+            return persistenceService.Obsolete(pol, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 		}
 
 		/// <summary>
@@ -631,7 +660,9 @@ namespace OpenIZ.Core.Services.Impl
 				throw new InvalidOperationException(string.Format("{0} not found", nameof(IDataPersistenceService<SecurityRole>)));
 			}
 
-			return persistenceService.Obsolete(this.GetRole(roleId), AuthenticationContext.Current.Principal, TransactionMode.Commit);
+            var rol = this.GetRole(roleId);
+            this.SecurityResourceDeleted?.Invoke(this, new SecurityAuditDataEventArgs(rol));
+            return persistenceService.Obsolete(rol, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 		}
 
 		/// <summary>
@@ -669,7 +700,8 @@ namespace OpenIZ.Core.Services.Impl
 		/// </summary>
 		/// <param name="application">The security application containing the updated information.</param>
 		/// <returns>Returns the updated application.</returns>
-		public SecurityApplication SaveApplication(SecurityApplication application)
+		[PolicyPermission(System.Security.Permissions.SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.CreateApplication)]
+        public SecurityApplication SaveApplication(SecurityApplication application)
 		{
 			var persistenceService = ApplicationContext.Current.GetService<IDataPersistenceService<SecurityApplication>>();
 
@@ -678,6 +710,7 @@ namespace OpenIZ.Core.Services.Impl
 				throw new InvalidOperationException($"{nameof(IDataPersistenceService<SecurityApplication>)} not found");
 			}
 
+            this.SecurityAttributesChanged?.Invoke(this, new SecurityAuditDataEventArgs(application));
 			return persistenceService.Update(application, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 		}
 
@@ -686,7 +719,7 @@ namespace OpenIZ.Core.Services.Impl
 		/// </summary>
 		/// <param name="device">The security device containing the updated information.</param>
 		/// <returns>Returns the updated device.</returns>
-		[PolicyPermission(System.Security.Permissions.SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.UnrestrictedMetadata)]
+		[PolicyPermission(System.Security.Permissions.SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.CreateDevice)]
 		public SecurityDevice SaveDevice(SecurityDevice device)
 		{
 			var persistenceService = ApplicationContext.Current.GetService<IDataPersistenceService<SecurityDevice>>();
@@ -695,8 +728,9 @@ namespace OpenIZ.Core.Services.Impl
 			{
 				throw new InvalidOperationException($"{nameof(IDataPersistenceService<SecurityDevice>)} not found");
 			}
+            this.SecurityAttributesChanged?.Invoke(this, new SecurityAuditDataEventArgs(device));
 
-			return persistenceService.Update(device, AuthenticationContext.Current.Principal, TransactionMode.Commit);
+            return persistenceService.Update(device, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 		}
 
 		/// <summary>
@@ -704,7 +738,7 @@ namespace OpenIZ.Core.Services.Impl
 		/// </summary>
 		/// <param name="policy">The security policy containing the updated information.</param>
 		/// <returns>Returns the updated policy.</returns>
-		[PolicyPermission(System.Security.Permissions.SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.UnrestrictedMetadata)]
+		[PolicyPermission(System.Security.Permissions.SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.AlterPolicy)]
 		public SecurityPolicy SavePolicy(SecurityPolicy policy)
 		{
 			var persistenceService = ApplicationContext.Current.GetService<IDataPersistenceService<SecurityPolicy>>();
@@ -713,8 +747,9 @@ namespace OpenIZ.Core.Services.Impl
 			{
 				throw new InvalidOperationException(string.Format("{0} not found", nameof(IDataPersistenceService<SecurityPolicy>)));
 			}
+            this.SecurityAttributesChanged?.Invoke(this, new SecurityAuditDataEventArgs(policy));
 
-			return persistenceService.Update(policy, AuthenticationContext.Current.Principal, TransactionMode.Commit);
+            return persistenceService.Update(policy, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 		}
 
 		/// <summary>
@@ -731,8 +766,9 @@ namespace OpenIZ.Core.Services.Impl
 			{
 				throw new InvalidOperationException(string.Format("{0} not found", nameof(IDataPersistenceService<SecurityRole>)));
 			}
+            this.SecurityAttributesChanged?.Invoke(this, new SecurityAuditDataEventArgs(role));
 
-			return persistenceService.Update(role, AuthenticationContext.Current.Principal, TransactionMode.Commit);
+            return persistenceService.Update(role, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 		}
 
 		/// <summary>
@@ -740,7 +776,7 @@ namespace OpenIZ.Core.Services.Impl
 		/// </summary>
 		/// <param name="user">The security user containing the updated information.</param>
 		/// <returns>Returns the updated user.</returns>
-		public SecurityUser SaveUser(SecurityUser user)
+        public SecurityUser SaveUser(SecurityUser user)
 		{
             // Only the current user can update themselves or an administrator
             if (AuthenticationContext.Current.Principal.Identity.Name != user.UserName)
@@ -754,7 +790,10 @@ namespace OpenIZ.Core.Services.Impl
 			// Demand permission do this operation
 			if (AuthenticationContext.Current.Principal.Identity.Name != user.UserName) // Users can update their own info
 				new PolicyPermission(System.Security.Permissions.PermissionState.Unrestricted, PermissionPolicyIdentifiers.AlterIdentity).Demand(); // Otherwise demand to be an administrator
-			return pers.Update(user, AuthenticationContext.Current.Principal, TransactionMode.Commit);
+
+            this.SecurityAttributesChanged?.Invoke(this, new SecurityAuditDataEventArgs(user));
+
+            return pers.Update(user, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 		}
 
 		/// <summary>
@@ -780,7 +819,9 @@ namespace OpenIZ.Core.Services.Impl
 
 			var securityUser = this.GetUser(userId);
 			iids.SetLockout(securityUser.UserName, false, AuthenticationContext.Current.Principal);
-		}
+            this.SecurityAttributesChanged?.Invoke(this, new SecurityAuditDataEventArgs(securityUser, "Lockout=False"));
+
+        }
 
         /// <summary>
         /// Find user entity

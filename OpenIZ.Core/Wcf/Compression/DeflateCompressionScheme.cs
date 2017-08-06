@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-11-3
+ * Date: 2016-11-30
  */
 using System;
 using System.Collections.Generic;
@@ -48,7 +48,7 @@ namespace OpenIZ.Core.Wcf.Compression
         /// </summary>
         public Stream CreateCompressionStream(Stream underlyingStream)
         {
-            return new DeflateStream(underlyingStream, CompressionMode.Compress);
+            return new DeflateStream(underlyingStream, CompressionLevel.Optimal);
         }
 
         /// <summary>

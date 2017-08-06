@@ -15,7 +15,7 @@
  * the License.
  *
  * User: khannan
- * Date: 2016-11-22
+ * Date: 2016-11-30
  */
 
 using MARC.HI.EHRS.SVC.Core;
@@ -51,7 +51,10 @@ namespace OpenIZ.Messaging.AMI.Wcf
 				Description = role.Role.Description
 			};
 
-			roleToCreate.Policies.AddRange(role.Role.Policies.Select(p => new SecurityPolicyInstance(p.Policy, p.GrantType)));
+            if (role.Policies != null)
+                roleToCreate.Policies.AddRange(role.Policies.Select(p => new SecurityPolicyInstance(p.Policy, p.Grant)));
+            else
+			    roleToCreate.Policies.AddRange(role.Role.Policies.Select(p => new SecurityPolicyInstance(p.Policy, p.GrantType)));
 
 			return new SecurityRoleInfo(roleRepository.CreateRole(roleToCreate));
 		}

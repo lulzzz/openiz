@@ -1,8 +1,7 @@
 ﻿/// <reference path="openiz.js"/>
-
 /*
  * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
- * 
+ *
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you 
  * may not use this file except in compliance with the License. You may 
@@ -17,7 +16,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-7-17
+ * Date: 2016-11-30
  */
 
 /**
@@ -5900,7 +5899,7 @@ var OpenIZModel = OpenIZModel || {
             this.count = copyData.count;
             this.offset = copyData.offset;
             this.entry = copyData.entry;
-            this.item = copyData.$item ;
+            this.item = copyData.$item;
             this.modifiedOn = copyData.modifiedOn;
         }
     },  // Bundle 
@@ -7646,6 +7645,7 @@ var OpenIZModel = OpenIZModel || {
          *             Status - Obsolete            
          */
         Obsolete: 'bdef5f90-5497-4f26-956c-8f818cce2bd2',
+        Cancelled: '3efd3b6e-02d5-4cc9-9088-ef8f31e321c5'
     },  // StatusKeys 
     // OpenIZ.Core.Model.Constants.EntityRelationshipTypeKeys, OpenIZ.Core.Model, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
     /**
@@ -8264,7 +8264,7 @@ var OpenIZModel = OpenIZModel || {
          * 
          */
         Wife: 'a3ff423e-81d5-4571-8edf-03c295189a23',
-        Replaces : "e998ca72-3b6a-4099-ab6e-7cf6861a5b61"
+        Replaces : 'd1578637-e1cb-415e-b319-4011da033813'
 
     },  // EntityRelationshipTypeKeys 
     // OpenIZ.Core.Model.Constants.TelecomAddressUseKeys, OpenIZ.Core.Model, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
@@ -9156,6 +9156,10 @@ var OpenIZModel = OpenIZModel || {
          *             There was a cold-storage failure which resulted in the material being unusable.            
          */
         ColdStorageFailure: '06922eac-0cae-49af-a33c-fc7096349e4a',
+        /** 
+        *             Adjustment is the result of a physical count
+        */
+        PhysicalCount: '5edb55a1-723c-46e4-9fee-2c94db20b7ab'
     },  // ActReasonKeys 
     // OpenIZ.Core.Model.Constants.ActRelationshipTypeKeys, OpenIZ.Core.Model, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
     /**
@@ -9284,6 +9288,76 @@ var OpenIZModel = OpenIZModel || {
         this.caused_by = cause;
 
     },  // Exception
+    // OpenIZ.Core.Model.Constants.NullReasonKeys, OpenIZ.Core.Model, Version=0.8.1.22482, Culture=neutral, PublicKeyToken=null
+    /**
+     * @enum {uuid}
+     * @memberof OpenIZModel
+     * @public
+     * @readonly
+     * @summary             Null reason keys            
+     */
+    NullReasonKeys: {
+        /** 
+         * 
+         */
+        Unavailable: '31e01921-82dc-4622-b3db-21429ea9e406',
+        /** 
+         * 
+         */
+        NotApplicable: 'fea2cfb1-f231-413d-b113-372779092e56',
+        /** 
+         * 
+         */
+        Derived: '8ef137b3-e717-492b-8d8f-3817c99aed88',
+        /** 
+         * 
+         */
+        Other: '6052712a-340e-4480-ad6b-409ba320db4f',
+        /** 
+         * 
+         */
+        AskedUnknown: '21b0ffc8-ca4e-408d-a104-41fc924d3a39',
+        /** 
+         * 
+         */
+        Invalid: 'd3f92eb1-fece-4dea-bed2-515af2b0fb38',
+        /** 
+         * 
+         */
+        Trace: '085069d8-0ca8-4771-986b-5eb3466580ff',
+        /** 
+         * 
+         */
+        NegativeInfinity: 'fed3fe1b-b2c7-480b-b0af-5fd2e0200ce5',
+        /** 
+         * 
+         */
+        SufficientQuantity: 'c139841a-7d5a-40ba-9ac7-7628a7cdf443',
+        /** 
+         * 
+         */
+        UnEncoded: '7da45c51-eb8e-4c75-a40b-7db66cb3f3cb',
+        /** 
+         * 
+         */
+        NotAsked: '09919a72-808c-44c4-8b44-86fd3725f100',
+        /** 
+         * 
+         */
+        Unknown: '70fe34ce-caff-4f46-b6e6-9cd6d8f289d6',
+        /** 
+         * 
+         */
+        PositiveInfinity: 'e6d6fee2-fa53-4027-8eb8-9dd0f35d053d',
+        /** 
+         * 
+         */
+        NoInformation: '61d8f65c-747e-4a99-982f-a42ac5437473',
+        /** 
+         * 
+         */
+        Masked: '9b16bf12-073e-4ea4-b6c5-e1b93e8fd490',
+    },  // NullReasonKeys 
     // OpenIZ.Core.Model.Constants.DatePrecisionFormats, OpenIZ.Core.Model, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
     /**
      * @enum {String}

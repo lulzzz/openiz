@@ -1,4 +1,23 @@
-﻿using System;
+﻿/*
+ * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
+ *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
+ * the License.
+ * 
+ * User: justi
+ * Date: 2017-1-21
+ */
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -218,11 +237,23 @@ namespace OpenIZ.OrmLite
         /// </summary>
         public void AddCacheCommit(IdentifiedData data)
         {
-            if (data.Key.HasValue && !this.m_cacheCommit.ContainsKey(data.Key.Value))
-                lock (this.m_lockObject)
-					// check again
-					if (!m_cacheCommit.ContainsKey(data.Key.Value))
-						this.m_cacheCommit.Add(data.Key.Value, data);
+            try
+            {
+                IdentifiedData existing = null;
+                if (data.Key.HasValue && !this.m_cacheCommit.TryGetValue(data.Key.Value, out existing))
+                {
+                    lock (this.m_lockObject)
+                        // check again
+                        if (!m_cacheCommit.ContainsKey(data.Key.Value))
+                            this.m_cacheCommit.Add(data.Key.Value, data);
+                }
+                else if (data.Key.HasValue && data.LoadState > (existing?.LoadState ?? 0))
+                    this.m_cacheCommit[data.Key.Value] = data;
+            }
+            catch(Exception e)
+            {
+                this.m_tracer.TraceWarning("Object {0} won't be added to cache: {1}", data, e);
+            }
         }
 
 
@@ -232,7 +263,8 @@ namespace OpenIZ.OrmLite
         public IdentifiedData GetCacheCommit(Guid key)
         {
             IdentifiedData retVal = null;
-            this.m_cacheCommit.TryGetValue(key, out retVal);
+            lock(this.m_lockObject)
+                this.m_cacheCommit.TryGetValue(key, out retVal);
             return retVal;
         }
 

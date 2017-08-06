@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  *
- * User: justi
+ * User: khannan
  * Date: 2016-8-2
  */
 
@@ -57,18 +57,10 @@ namespace OpenIZ.Messaging.AMI.Wcf
 		// Trace source
 		private TraceSource traceSource = new TraceSource("OpenIZ.Messaging.AMI");
 
-        /// <summary>
-        /// Perform a ping
-        /// </summary>
-        public void Ping()
-        {
-            WebOperationContext.Current.OutgoingResponse.StatusCode = System.Net.HttpStatusCode.NoContent;
-        }
-
-        /// <summary>
-        /// Create a diagnostic report
-        /// </summary>
-        [PolicyPermission(SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.Login)]
+		/// <summary>
+		/// Create a diagnostic report
+		/// </summary>
+		[PolicyPermission(SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.Login)]
 		public DiagnosticReport CreateDiagnosticReport(DiagnosticReport report)
 		{
 			var persister = ApplicationContext.Current.GetService<IDataPersistenceService<DiagnosticReport>>();
@@ -77,12 +69,34 @@ namespace OpenIZ.Messaging.AMI.Wcf
 			return persister.Insert(report, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 		}
 
-		/// <summary>
-		/// Gets the schema for the administrative interface.
-		/// </summary>
-		/// <param name="schemaId">The id of the schema to be retrieved.</param>
-		/// <returns>Returns the administrative interface schema.</returns>
-		public XmlSchema GetSchema(int schemaId)
+        /// <summary>
+        /// Create a diagnostic report
+        /// </summary>
+        [PolicyPermission(SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.UnrestrictedAdministration)]
+        public DiagnosticReport GetServerDiagnosticReport()
+        {
+            var retVal = new DiagnosticReport();
+            retVal.ApplicationInfo = new DiagnosticApplicationInfo(Assembly.GetEntryAssembly());
+            retVal.CreatedByKey = Guid.Parse(AuthenticationContext.SystemUserSid);
+
+            retVal.ApplicationInfo.Assemblies = AppDomain.CurrentDomain.GetAssemblies().Select(o => new DiagnosticVersionInfo(o)).ToList();
+            retVal.ApplicationInfo.EnvironmentInfo = new DiagnosticEnvironmentInfo()
+            {
+                Is64Bit = Environment.Is64BitOperatingSystem && Environment.Is64BitProcess,
+                OSVersion = String.Format("{0} v{1}", System.Environment.OSVersion.Platform, System.Environment.OSVersion.Version),
+                ProcessorCount = Environment.ProcessorCount,
+                UsedMemory = GC.GetTotalMemory(false),
+                Version = Environment.Version.ToString()
+            };
+            retVal.ApplicationInfo.ServiceInfo = ApplicationContext.Current.GetServices().OfType<IDaemonService>().Select(o => new DiagnosticServiceInfo(o)).ToList();
+            return retVal;
+        }
+        /// <summary>
+        /// Gets the schema for the administrative interface.
+        /// </summary>
+        /// <param name="schemaId">The id of the schema to be retrieved.</param>
+        /// <returns>Returns the administrative interface schema.</returns>
+        public XmlSchema GetSchema(int schemaId)
 		{
 			try
 			{
@@ -166,19 +180,19 @@ namespace OpenIZ.Messaging.AMI.Wcf
 				}
 			};
 
-            // Get endpoints 
-            serviceOptions.Endpoints = ApplicationContext.Current.GetServices().OfType<IApiEndpointProvider>().Select(o =>
-                new ServiceEndpointOptions()
-                {
-                    BaseUrl = o.Url,
-                    ServiceType = o.ApiType,
-                    Capabilities = o.Capabilities
-                }
-            ).ToList();
+			// Get endpoints
+			serviceOptions.Endpoints = ApplicationContext.Current.GetServices().OfType<IApiEndpointProvider>().Select(o =>
+				new ServiceEndpointOptions()
+				{
+					BaseUrl = o.Url,
+					ServiceType = o.ApiType,
+					Capabilities = o.Capabilities
+				}
+			).ToList();
 
-            var config = ApplicationContext.Current.GetService<IConfigurationManager>().GetSection("openiz.messaging.ami") as AmiConfiguration;
-            if(config != null  && config.Endpoints != null)
-                serviceOptions.Endpoints.AddRange(config.Endpoints);
+			var config = ApplicationContext.Current.GetService<IConfigurationManager>().GetSection("openiz.messaging.ami") as AmiConfiguration;
+			if (config != null && config.Endpoints != null)
+				serviceOptions.Endpoints.AddRange(config.Endpoints);
 			//foreach (var methodInfo in typeof(IAmiContract).GetMethods().Where(m => m.GetCustomAttribute<WebInvokeAttribute>() != null))
 			//{
 			//	var webInvoke = methodInfo.GetCustomAttribute<WebInvokeAttribute>();
@@ -213,6 +227,14 @@ namespace OpenIZ.Messaging.AMI.Wcf
 		}
 
 		/// <summary>
+		/// Perform a ping
+		/// </summary>
+		public void Ping()
+		{
+			WebOperationContext.Current.OutgoingResponse.StatusCode = System.Net.HttpStatusCode.NoContent;
+		}
+
+		/// <summary>
 		/// Creates security reset information
 		/// </summary>
 		public void SendTfaSecret(TfaRequestInfo resetInfo)
@@ -225,6 +247,7 @@ namespace OpenIZ.Messaging.AMI.Wcf
 			// this is to make sure that people cannot guess users
 			if (securityUser == null)
 			{
+                this.traceSource.TraceEvent(TraceEventType.Warning, 0, "Attempt to get TFA reset code for {0} which is not a valid user", resetInfo.UserName);
 				WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.NoContent;
 				return;
 			}

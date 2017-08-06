@@ -29,6 +29,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using OpenIZ.Core.Interfaces;
+using OpenIZ.Core.Model.Interfaces;
 
 namespace OpenIZ.Core.Model.DataTypes
 {
@@ -38,7 +39,8 @@ namespace OpenIZ.Core.Model.DataTypes
     /// </summary>
     [Classifier(nameof(ExtensionType)), SimpleValue(nameof(ExtensionValueString))]
     [XmlType(Namespace = "http://openiz.org/model"), JsonObject("Extension")]
-    public abstract class Extension<TBoundModel> : VersionedAssociation<TBoundModel> where TBoundModel : VersionedEntityData<TBoundModel>, new()
+    public abstract class Extension<TBoundModel> : 
+        VersionedAssociation<TBoundModel>, IModelExtension where TBoundModel : VersionedEntityData<TBoundModel>, new()
     {
 
 
@@ -108,6 +110,15 @@ namespace OpenIZ.Core.Model.DataTypes
         }
 
         /// <summary>
+        /// Get the value of the extension
+        /// </summary>
+        /// <returns></returns>
+        public Object GetValue()
+        {
+            return this.LoadProperty<ExtensionType>("ExtensionType")?.ExtensionHandlerInstance?.DeSerialize(this.ExtensionValueXml);
+        }
+
+        /// <summary>
         /// Gets or sets an extension displayable value
         /// </summary>
         [XmlIgnore, JsonIgnore]
@@ -160,6 +171,50 @@ namespace OpenIZ.Core.Model.DataTypes
         }
 
         /// <summary>
+        /// Get the type key
+        /// </summary>
+        Guid IModelExtension.ExtensionTypeKey
+        {
+            get
+            {
+                return this.ExtensionTypeKey.Value;
+            }
+        }
+
+        /// <summary>
+        /// Gets the data
+        /// </summary>
+        byte[] IModelExtension.Data
+        {
+            get
+            {
+                return this.ExtensionValueXml;
+            }
+        }
+
+        /// <summary>
+        /// Get the display
+        /// </summary>
+        string IModelExtension.Display
+        {
+            get
+            {
+                return this.ExtensionDisplay;
+            }
+        }
+        
+        /// <summary>
+        /// Get the value of the extension
+        /// </summary>
+        object IModelExtension.Value
+        {
+            get
+            {
+                return this.ExtensionValue;
+            }
+        }
+
+        /// <summary>
         /// Forces refresh 
         /// </summary>
         public override void Refresh()
@@ -205,6 +260,15 @@ namespace OpenIZ.Core.Model.DataTypes
             this.ExtensionValueXml = value;
         }
 
+        /// <summary>
+        /// Creates an entity extension
+        /// </summary>
+        public EntityExtension(Guid extensionType, Type extensionHandlerType, object value)
+        {
+            this.ExtensionTypeKey = extensionType;
+            this.ExtensionValueXml = (Activator.CreateInstance(extensionHandlerType) as IExtensionHandler)?.Serialize(value);
+        }
+
     }
 
     /// <summary>
@@ -230,6 +294,15 @@ namespace OpenIZ.Core.Model.DataTypes
         {
             this.ExtensionTypeKey = extensionType;
             this.ExtensionValueXml = value;
+        }
+
+        /// <summary>
+        /// Creates an entity extension
+        /// </summary>
+        public ActExtension(Guid extensionType, Type extensionHandlerType, object value)
+        {
+            this.ExtensionTypeKey = extensionType;
+            this.ExtensionValueXml = (Activator.CreateInstance(extensionHandlerType) as IExtensionHandler)?.Serialize(value);
         }
     }
 }

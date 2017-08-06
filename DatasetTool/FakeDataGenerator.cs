@@ -1,23 +1,22 @@
 ﻿/*
  * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
  *
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you
- * may not use this file except in compliance with the License. You may
- * obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
  * the License.
- *
+ * 
  * User: justi
  * Date: 2016-8-4
  */
-
 using MARC.Everest.Threading;
 using MARC.HI.EHRS.SVC.Core;
 using MARC.HI.EHRS.SVC.Core.Services;
@@ -76,29 +75,51 @@ namespace OizDevTool
 			int tr = 0;
 			Console.WriteLine("Adding minimal loading places...");
 
-			var places = (ApplicationContext.Current.GetService<IPlaceRepositoryService>() as IFastQueryRepositoryService).FindFast<Place>(o => o.StatusConceptKey == StatusKeys.Active && o.ClassConceptKey == EntityClassKeys.ServiceDeliveryLocation, 0, 1000, out tr, Guid.Empty);
-			places = places.Union((ApplicationContext.Current.GetService<IPlaceRepositoryService>() as IFastQueryRepositoryService).FindFast<Place>(o => o.StatusConceptKey == StatusKeys.Active && o.ClassConceptKey != EntityClassKeys.ServiceDeliveryLocation, 0, 1000, out tr, Guid.Empty));
-			WaitThreadPool wtp = new WaitThreadPool(Environment.ProcessorCount * 4);
+            IEnumerable<Place> places = null;
+
+            Guid facId = Guid.Empty;
+            if (!String.IsNullOrEmpty(parameters.Facility) && Guid.TryParse(parameters.Facility, out facId))
+            {
+                places = (ApplicationContext.Current.GetService<IPlaceRepositoryService>() as IFastQueryRepositoryService).FindFast<Place>(o => o.Key == facId, 0, 1, out tr, Guid.Empty);
+            }
+            else
+            {
+                places = (ApplicationContext.Current.GetService<IPlaceRepositoryService>() as IFastQueryRepositoryService).FindFast<Place>(o => o.StatusConceptKey == StatusKeys.Active && o.ClassConceptKey == EntityClassKeys.ServiceDeliveryLocation, 0, Int32.Parse(parameters.FacilityCount ?? "1000"), out tr, Guid.Empty);
+            };
+
+            places = places.Union((ApplicationContext.Current.GetService<IPlaceRepositoryService>() as IFastQueryRepositoryService).FindFast<Place>(o => o.StatusConceptKey == StatusKeys.Active && o.ClassConceptKey != EntityClassKeys.ServiceDeliveryLocation, 0, Int32.Parse(parameters.FacilityCount ?? "1000"), out tr, Guid.Empty));
+
+            WaitThreadPool wtp = new WaitThreadPool(Environment.ProcessorCount * 4);
 			Random r = new Random();
 
 			int npatients = 0;
 			Console.WriteLine("Generating Patients...");
+
+            DateTime startTime = DateTime.Now;
 
 			WaitCallback genFunc = (s) =>
 			{
 				AuthenticationContext.Current = new AuthenticationContext(AuthenticationContext.SystemPrincipal);
 
 				var patient = GeneratePatient(maxAge, parameters.BarcodeAuth, places, r);
+
+				if (patient == null)
+					return;
+
 				var persistence = ApplicationContext.Current.GetService<IDataPersistenceService<Patient>>();
 				// Insert
 				int pPatient = Interlocked.Increment(ref npatients);
-				patient = persistence.Insert(patient, AuthenticationContext.SystemPrincipal, TransactionMode.Commit);
-				Console.WriteLine("Generated Patient #{2:#,###,###}: {0} ({1} mo)", patient, DateTime.Now.Subtract(patient.DateOfBirth.Value).TotalDays / 30, pPatient);
+
+                var ips = (((double)(DateTime.Now - startTime).Ticks / pPatient) * (populationSize - pPatient));
+                var remaining = new TimeSpan((long)ips);
+
+                patient = persistence.Insert(patient, AuthenticationContext.SystemPrincipal, TransactionMode.Commit);
+				Console.WriteLine("#{2:#,###,###}({4:0%} - ETA:{5}): {0} ({1:#0} mo) [{3}]", patient.Identifiers.First().Value, DateTime.Now.Subtract(patient.DateOfBirth.Value).TotalDays / 30, pPatient, places.FirstOrDefault(p => p.Key == patient.Relationships.FirstOrDefault(o => o.RelationshipTypeKey == EntityRelationshipTypeKeys.DedicatedServiceDeliveryLocation).TargetEntityKey).Names.FirstOrDefault().ToString(), (float)pPatient / populationSize, remaining.ToString("hh'h 'mm'm 'ss's'"));
 
 				// Schedule
 				if (!parameters.PatientOnly)
 				{
-					var acts = ApplicationContext.Current.GetService<ICarePlanService>().CreateCarePlan(patient).Action.Where(o => o.ActTime <= DateTime.Now).Select(o=>o.Copy() as Act);
+					var acts = ApplicationContext.Current.GetService<ICarePlanService>().CreateCarePlan(patient).Action.Where(o => o.ActTime <= DateTime.Now).Select(o => o.Copy() as Act);
 
 					Bundle bundle = new Bundle();
 
@@ -108,20 +129,20 @@ namespace OizDevTool
 						act.MoodConceptKey = ActMoodKeys.Eventoccurrence;
 						act.StatusConceptKey = StatusKeys.Completed;
 						act.ActTime = act.ActTime.AddDays(r.Next(0, 5));
-                        act.StartTime = null;
-                        act.StopTime = null;
+						act.StartTime = null;
+						act.StopTime = null;
 						if (act is QuantityObservation)
 							(act as QuantityObservation).Value = (r.Next((int)(act.ActTime - patient.DateOfBirth.Value).TotalDays, (int)(act.ActTime - patient.DateOfBirth.Value).TotalDays + 10) / 10) + 4;
-                        else
-                        {
-                            act.Tags.AddRange(new ActTag[]
-                            {
-                                new ActTag("catchmentIndicator", "True"),
-                                new ActTag("hasRunAdjustment", "True")
-                            });
-                            act.Participations.Add(new ActParticipation(ActParticipationKey.Location, patient.Relationships.First(l => l.RelationshipTypeKey == EntityRelationshipTypeKeys.DedicatedServiceDeliveryLocation).TargetEntityKey));
-                        }
-                        
+						else
+						{
+							act.Tags.AddRange(new ActTag[]
+							{
+								new ActTag("catchmentIndicator", "True"),
+								new ActTag("hasRunAdjustment", "True")
+							});
+							act.Participations.Add(new ActParticipation(ActParticipationKey.Location, patient.Relationships.First(l => l.RelationshipTypeKey == EntityRelationshipTypeKeys.DedicatedServiceDeliveryLocation).TargetEntityKey));
+						}
+
 						// Persist the act
 						bundle.Item.Add(act);
 					}
@@ -156,7 +177,7 @@ namespace OizDevTool
 
 			int tr = 0, ofs = 0;
 			Console.WriteLine("Querying for places");
-			var results = idp.Query(o => o.ClassConceptKey == EntityClassKeys.ServiceDeliveryLocation, ofs, 25, AuthenticationContext.SystemPrincipal, out tr);
+			var results = idp.Query(o => o.ClassConceptKey == EntityClassKeys.ServiceDeliveryLocation, ofs, 1000, AuthenticationContext.SystemPrincipal, out tr);
 			Console.WriteLine("Will create fake stock for {0} places", tr);
 			var r = new Random();
 
@@ -174,7 +195,7 @@ namespace OizDevTool
 							// Add some stock!!! :)
 							foreach (var m in mat)
 							{
-								var mmats = m.Relationships.Where(o => o.RelationshipTypeKey == EntityRelationshipTypeKeys.ManufacturedProduct).OrderBy(o => r.Next()).FirstOrDefault();
+								var mmats = m.Relationships.Where(o => o.RelationshipTypeKey == EntityRelationshipTypeKeys.Instance).OrderBy(o => r.Next()).FirstOrDefault();
 								Console.WriteLine("Selected {0} out of {1} materials", mmats, m.Relationships.Count);
 								var rdp = ApplicationContext.Current.GetService<IDataPersistenceService<EntityRelationship>>();
 								if (mmats != null)
@@ -202,7 +223,7 @@ namespace OizDevTool
 		/// </summary>
 		internal static Patient GeneratePatient(int maxAge, string barcodeAuth, IEnumerable<Place> places, Random r)
 		{
-			Person mother = new Person()
+			var mother = new Person()
 			{
 				Key = Guid.NewGuid(),
 				Names = new List<EntityName>() { new EntityName(NameUseKeys.OfficialRecord, SeedData.SeedData.Current.PickRandomFamilyName(), SeedData.SeedData.Current.PickRandomGivenName("Female").Name) },
@@ -210,21 +231,37 @@ namespace OizDevTool
 				Identifiers = new List<OpenIZ.Core.Model.DataTypes.EntityIdentifier>() { new OpenIZ.Core.Model.DataTypes.EntityIdentifier(new AssigningAuthority("NID", "National Identifier", "1.2.3.4.5.6"), BitConverter.ToInt32(Guid.NewGuid().ToByteArray(), 0).ToString()) }
 			};
 
-			String gender = BitConverter.ToInt32(Guid.NewGuid().ToByteArray(), 1) % 2 == 0 ? "Male" : "Female";
+			var gender = BitConverter.ToInt32(Guid.NewGuid().ToByteArray(), 1) % 2 == 0 ? "Male" : "Female";
 
-			var villageId = places.Where(o => o.ClassConceptKey != EntityClassKeys.ServiceDeliveryLocation).OrderBy(o => r.Next()).FirstOrDefault().Addresses.First();
-			var addr = new EntityAddress();
-			addr.AddressUseKey = AddressUseKeys.HomeAddress;
-			addr.Component = new List<EntityAddressComponent>(villageId.Component.Select(o => new EntityAddressComponent(o.ComponentTypeKey.Value, o.Value)));
+			EntityAddress address = null;
+
+			try
+			{
+				var villageId = places.Where(o => o.ClassConceptKey != EntityClassKeys.ServiceDeliveryLocation).OrderBy(o => r.Next()).FirstOrDefault().Addresses.First();
+				address = new EntityAddress
+				{
+					AddressUseKey = AddressUseKeys.HomeAddress,
+					Component = new List<EntityAddressComponent>(villageId.Component.Select(o => new EntityAddressComponent(o.ComponentTypeKey.Value, o.Value)))
+				};
+			}
+			catch
+			{
+				Console.WriteLine("Unable to determine address for patient");
+			}
+
+
 			// Child
 			Patient child = new Patient()
 			{
 				Names = new List<EntityName>() { new EntityName(NameUseKeys.OfficialRecord, mother.Names[0].Component[0].Value, SeedData.SeedData.Current.PickRandomGivenName(gender).Name, SeedData.SeedData.Current.PickRandomGivenName(gender).Name) },
 				DateOfBirth = DateTime.Now.AddDays(-Math.Abs(BitConverter.ToInt32(Guid.NewGuid().ToByteArray(), 0) % maxAge)),
-				Addresses = new List<EntityAddress>() { addr },
 				GenderConcept = new Concept() { Mnemonic = gender },
-				Identifiers = new List<EntityIdentifier>() { new EntityIdentifier(barcodeAuth, BitConverter.ToString(Guid.NewGuid().ToByteArray()).Replace("-", "").Substring(0, 10)) }
+				Identifiers = new List<EntityIdentifier>() { new EntityIdentifier(barcodeAuth, BitConverter.ToString(Guid.NewGuid().ToByteArray()).Replace("-", "").Replace("A","0").Replace("B","4").Replace("C", "6").Replace("D", "8").Replace("E", "9").Replace("F", "5").Substring(0, 10)) }
 			};
+
+			if (address != null)
+				child.Addresses.Add(address);
+
 			// Associate
 			child.Relationships = new List<EntityRelationship>() {
 				new EntityRelationship(EntityRelationshipTypeKeys.Mother, mother),
@@ -266,7 +303,15 @@ namespace OizDevTool
 			[Parameter("popsize")]
 			[Description("Population size of the generated dataset")]
 			public String PopulationSize { get; set; }
-		}
+
+            [Parameter("facilities")]
+            [Description("Dictates the number of facilities to place the patients in")]
+            public string FacilityCount { get; set; }
+
+            [Parameter("facility")]
+            [Description("Generates all the patients in the specified facility")]
+            public string Facility { get; set; }
+        }
 
 		
 	}

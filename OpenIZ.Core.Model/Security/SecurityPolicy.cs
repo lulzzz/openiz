@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-11-3
+ * Date: 2016-11-20
  */
 using System;
 using System.Collections.Generic;
@@ -35,8 +35,19 @@ namespace OpenIZ.Core.Model.Security
     /// </summary>
     public enum PolicyGrantType
     {
-        Deny = 0,
-        Elevate = 1,
+		/// <summary>
+		/// Represents a policy grant type of deny.
+		/// </summary>
+		Deny = 0,
+
+		/// <summary>
+		/// Represnts a policy grant type of elevate.
+		/// </summary>
+		Elevate = 1,
+
+        /// <summary>
+        /// Represents a policy grant type of grant.
+        /// </summary>
         Grant = 2
     }
 

@@ -14,11 +14,10 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  *
- * User: justi
+ * User: khannan
  * Date: 2016-8-28
  */
 
-using MARC.HI.EHRS.SVC.Core;
 using MARC.HI.EHRS.SVC.Core.Services;
 using OpenIZ.Core.Interop;
 using OpenIZ.Core.Wcf;
@@ -27,8 +26,11 @@ using OpenIZ.Core.Wcf.Security;
 using OpenIZ.Messaging.RISI.Wcf;
 using OpenIZ.Messaging.RISI.Wcf.Behavior;
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.ServiceModel.Description;
 using System.ServiceModel.Web;
 
@@ -37,6 +39,7 @@ namespace OpenIZ.Messaging.RISI
 	/// <summary>
 	/// Represents a message handler for reporting services.
 	/// </summary>
+    [Description("RISI Message Service")]
 	public class RisiMessageHandler : IDaemonService, IApiEndpointProvider
 	{
 		/// <summary>
@@ -70,58 +73,61 @@ namespace OpenIZ.Messaging.RISI
 		public event EventHandler Stopping;
 
 		/// <summary>
+		/// Gets the API type
+		/// </summary>
+		public ServiceEndpointType ApiType
+		{
+			get
+			{
+				return ServiceEndpointType.ReportIntegrationService;
+			}
+		}
+
+		/// <summary>
+		/// Capabilities
+		/// </summary>
+		public ServiceEndpointCapabilities Capabilities
+		{
+			get
+			{
+				var caps = ServiceEndpointCapabilities.None;
+				if (this.webHost.Description.Behaviors.OfType<ServiceCredentials>().Any(o => o.UserNameAuthentication?.CustomUserNamePasswordValidator != null))
+					caps |= ServiceEndpointCapabilities.BasicAuth;
+				if (this.webHost.Description.Behaviors.OfType<ServiceAuthorizationBehavior>().Any(o => o.ServiceAuthorizationManager is JwtTokenServiceAuthorizationManager))
+					caps |= ServiceEndpointCapabilities.BearerAuth;
+
+				return caps;
+			}
+		}
+
+		/// <summary>
 		/// Gets the running state of the message handler.
 		/// </summary>
 		public bool IsRunning => this.webHost?.State == System.ServiceModel.CommunicationState.Opened;
 
-
-        /// <summary>
-        /// Gets the API type
-        /// </summary>
-        public ServiceEndpointType ApiType
-        {
-            get
-            {
-                return ServiceEndpointType.ReportIntegrationService;
-            }
-        }
-
-        /// <summary>
-        /// URL of the service
-        /// </summary>
-        public string[] Url
-        {
-            get
-            {
-                return this.webHost.Description.Endpoints.OfType<ServiceEndpoint>().Select(o => o.Address.Uri.ToString()).ToArray();
-            }
-        }
-
-        /// <summary>
-        /// Capabilities
-        /// </summary>
-        public ServiceEndpointCapabilities Capabilities
-        {
-            get
-            {
-                var caps = ServiceEndpointCapabilities.None;
-                if (this.webHost.Description.Behaviors.OfType<ServiceCredentials>().Any(o => o.UserNameAuthentication?.CustomUserNamePasswordValidator != null))
-                    caps |= ServiceEndpointCapabilities.BasicAuth;
-                if (this.webHost.Description.Behaviors.OfType<ServiceAuthorizationBehavior>().Any(o => o.ServiceAuthorizationManager is JwtTokenServiceAuthorizationManager))
-                    caps |= ServiceEndpointCapabilities.BearerAuth;
-
-                return caps;
-            }
-        }
-
-
-        /// <summary>
-        /// Starts the service. Returns true if the service started successfully.
-        /// </summary>
-        /// <returns>Returns true if the service started successfully.</returns>
-        public bool Start()
+		/// <summary>
+		/// URL of the service
+		/// </summary>
+		public string[] Url
 		{
-			try
+			get
+			{
+				return this.webHost.Description.Endpoints.OfType<ServiceEndpoint>().Select(o => o.Address.Uri.ToString()).ToArray();
+			}
+		}
+
+		/// <summary>
+		/// Starts the service. Returns true if the service started successfully.
+		/// </summary>
+		/// <returns>Returns true if the service started successfully.</returns>
+		public bool Start()
+		{
+
+            // Don't startup unless in OpenIZ
+            if (Assembly.GetEntryAssembly().GetName().Name != "OpenIZ")
+                return true;
+
+            try
 			{
 				this.Starting?.Invoke(this, EventArgs.Empty);
 
@@ -145,7 +151,7 @@ namespace OpenIZ.Messaging.RISI
 			{
 				this.traceSource.TraceEvent(TraceEventType.Information, 0, "Unable to start RISI message handler");
 				this.traceSource.TraceEvent(TraceEventType.Error, e.HResult, e.ToString());
-				throw;
+
 			}
 
 			return true;

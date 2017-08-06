@@ -15,12 +15,15 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-6-14
+ * Date: 2017-1-15
  */
+using MARC.HI.EHRS.SVC.Core;
+using MARC.HI.EHRS.SVC.Core.Services;
 using OpenIZ.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -33,6 +36,9 @@ namespace OpenIZ.Persistence.Data.ADO.Configuration
     /// </summary>
     public class AdoConfigurationSectionHandler : IConfigurationSectionHandler
     {
+
+        private TraceSource m_traceSource = new TraceSource(AdoDataConstants.TraceSourceName);
+
         /// <summary>
         /// Create the configuration section
         /// </summary>
@@ -67,8 +73,8 @@ namespace OpenIZ.Persistence.Data.ADO.Configuration
                     var dbp = Activator.CreateInstance(providerType) as IDbProvider;
                     if (dbp == null) throw new ConfigurationErrorsException($"Type {providerType} does not implement IDbProvider");
                     retVal.Provider = dbp;
-                    retVal.Provider.ReadonlyConnectionString = ConfigurationManager.ConnectionStrings[retVal.ReadonlyConnectionString]?.ConnectionString;
-                    retVal.Provider.ConnectionString = ConfigurationManager.ConnectionStrings[retVal.ReadWriteConnectionString]?.ConnectionString;
+                    retVal.Provider.ReadonlyConnectionString = ApplicationContext.Current.GetService<IConfigurationManager>().ConnectionStrings[retVal.ReadonlyConnectionString]?.ConnectionString;
+                    retVal.Provider.ConnectionString = ApplicationContext.Current.GetService<IConfigurationManager>().ConnectionStrings[retVal.ReadWriteConnectionString]?.ConnectionString;
                     retVal.Provider.TraceSql = retVal.TraceSql;
                 }
                 else
@@ -76,6 +82,12 @@ namespace OpenIZ.Persistence.Data.ADO.Configuration
 
                 if (retVal.ReadWriteConnectionString == null || retVal.ReadonlyConnectionString == null)
                     throw new ConfigurationErrorsException("Connection string not found");
+
+                foreach (XmlElement corr in section.SelectNodes("./corrections/add"))
+                {
+                    this.m_traceSource.TraceInformation("Adding correction {0}", corr.InnerText);
+                    retVal.DataCorrectionKeys.Add(corr.InnerText);
+                }
 
 
                 return retVal;

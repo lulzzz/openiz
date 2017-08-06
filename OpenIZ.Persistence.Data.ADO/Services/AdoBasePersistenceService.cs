@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-8-2
+ * Date: 2017-1-15
  */
 using System;
 using System.Linq;
@@ -46,6 +46,9 @@ using OpenIZ.Core.Model.Constants;
 using OpenIZ.Persistence.Data.ADO.Data;
 using OpenIZ.OrmLite;
 using OpenIZ.Persistence.Data.ADO.Services.Persistence;
+using System.Xml.Serialization;
+using System.IO;
+using System.Text;
 
 namespace OpenIZ.Persistence.Data.ADO.Services
 {
@@ -189,6 +192,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services
                             this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "INSERT {0}", data);
                             data = this.Insert(connection, data, principal);
                         }
+                        data.LoadState = LoadState.FullLoad; // We just persisted so it is fully loaded
 
                         if (mode == TransactionMode.Commit)
                         {
@@ -211,7 +215,8 @@ namespace OpenIZ.Persistence.Data.ADO.Services
                     }
                     catch (Exception e)
                     {
-                        this.m_tracer.TraceEvent(TraceEventType.Error, 0, "Error : {0}", e);
+                        this.m_tracer.TraceEvent(TraceEventType.Error, 0, "Error : {0} -- {1}", e, this.ObjectToString(data));
+
                         tx?.Rollback();
                         throw new DataPersistenceException(e.Message, e);
                     }
@@ -255,6 +260,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services
                         this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "UPDATE {0}", data);
 
                         data = this.Update(connection, data, principal);
+                        data.LoadState = LoadState.FullLoad; // We just persisted this so it is fully loaded
 
                         if (mode == TransactionMode.Commit)
                         {
@@ -277,8 +283,13 @@ namespace OpenIZ.Persistence.Data.ADO.Services
                     }
                     catch (Exception e)
                     {
-	                    this.m_tracer.TraceEvent(TraceEventType.Error, 0, "Error : {0}", e);
-	                    tx?.Rollback();
+
+#if DEBUG
+                        this.m_tracer.TraceEvent(TraceEventType.Error, 0, "Error : {0} -- {1}", e, this.ObjectToString(data));
+#else
+                        this.m_tracer.TraceEvent(TraceEventType.Error, 0, "Error : {0}", e.Message);
+#endif
+                        tx?.Rollback();
 
 						// if the exception is key not found, we want the caller to know
 						// so that a potential insert can take place
@@ -295,6 +306,20 @@ namespace OpenIZ.Persistence.Data.ADO.Services
                     {
                     }
 
+            }
+        }
+
+        /// <summary>
+        /// Convert object to string
+        /// </summary>
+        private String ObjectToString(TData data)
+        {
+            if (data == null) return "null";
+            XmlSerializer xsz = new XmlSerializer(data.GetType());
+            using (MemoryStream ms = new MemoryStream())
+            {
+                xsz.Serialize(ms, data);
+                return Encoding.UTF8.GetString(ms.ToArray());
             }
         }
 
@@ -506,10 +531,10 @@ namespace OpenIZ.Persistence.Data.ADO.Services
                     var postData = new PostQueryEventArgs<TData>(query, results.AsQueryable(), authContext);
                     this.Queried?.Invoke(this, postData);
 
-                    var retVal = postData.Results.AsParallel().ToList();
+                    var retVal = postData.Results.ToList();
 
                     // Add to cache
-                    foreach (var i in retVal.Where(i => i != null))
+                    foreach (var i in retVal.AsParallel().Where(i => i != null))
                         connection.AddCacheCommit(i);
 
                     ApplicationContext.Current.GetService<IThreadPoolService>()?.QueueUserWorkItem(o =>
@@ -684,7 +709,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services
         }
 
 
-        #region Event Handler Helpers
+#region Event Handler Helpers
 
         /// <summary>
         /// Fire retrieving
@@ -719,7 +744,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services
             return this.QueryInternal(query, queryId, offset, count, authContext, out totalCount, true);
         }
 
-        #endregion
+#endregion
 
     }
 }

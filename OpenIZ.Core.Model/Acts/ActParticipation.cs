@@ -35,6 +35,16 @@ namespace OpenIZ.Core.Model.Acts
     /// <summary>
     /// Associates an entity which participates in an act
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An act participation instance is used to link an <see cref="Entity"/> entity instance to an <see cref="Act"/> act instance. It is said that the
+    /// player (<see cref="PlayerEntityKey"/>) participates in the act (<see cref="ActKey"/>) in a particular role (<see cref="ParticipationRoleKey"/>).
+    /// </para>
+    /// <para>
+    /// Act participations can also be quantified. For example, if 100 doses of a particlar material (<see cref="ManufacturedMaterial"/>) were consumed
+    /// as part of an act, then the quantity would be 100.
+    /// </para>
+    /// </remarks>
     [Classifier(nameof(ParticipationRole))]
     [XmlType(Namespace = "http://openiz.org/model", TypeName = "ActParticipation"), JsonObject(nameof(ActParticipation))]
     public class ActParticipation : VersionedAssociation<Act>
@@ -55,7 +65,7 @@ namespace OpenIZ.Core.Model.Acts
         }
 
 		/// <summary>
-		/// Act participation relationship between <paramref name="source" /> and <paramref name="player" />
+		/// Act participation relationship between <paramref name="roleType" /> and <paramref name="player" />
 		/// </summary>
 		/// <param name="roleType">Type of the role.</param>
 		/// <param name="player">The player.</param>

@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-8-3
+ * Date: 2017-1-21
  */
 using OpenIZ.Core.Model.Acts;
 using OpenIZ.Core.Model.DataTypes;
@@ -52,6 +52,9 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
                 retVal.DoseUnitKey = sbadmInstance.DoseUnitConceptKey;
             if (sbadmInstance.RouteConceptKey != null)
                 retVal.RouteKey = sbadmInstance.RouteConceptKey;
+            if (sbadmInstance.SiteConceptKey != null)
+                retVal.SiteKey = sbadmInstance.SiteConceptKey;
+
             retVal.DoseQuantity = sbadmInstance.DoseQuantity;
             retVal.SequenceId = (int)sbadmInstance.SequenceId;
             

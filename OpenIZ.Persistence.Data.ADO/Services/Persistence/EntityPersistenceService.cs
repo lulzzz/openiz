@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-6-18
+ * Date: 2017-1-21
  */
 using OpenIZ.Core.Model.Entities;
 using System;
@@ -328,23 +328,23 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
 
 		        foreach (var entityIdentifier in uniqueIds)
 		        {
-			        if (context.Query<DbEntityIdentifier>(c => c.SourceKey != data.Key && c.AuthorityKey == entityIdentifier.AuthorityKey && c.Value == entityIdentifier.Value).Any())
+			        if (context.Query<DbEntityIdentifier>(c => c.SourceKey != data.Key && c.AuthorityKey == entityIdentifier.AuthorityKey && c.Value == entityIdentifier.Value && !c.ObsoleteVersionSequenceId.HasValue).Any())
 			        {
 						throw new DuplicateNameException(entityIdentifier.Value);
 					}
 				}
 
 				base.UpdateVersionedAssociatedItems<Core.Model.DataTypes.EntityIdentifier, DbEntityIdentifier>(
-					data.Identifiers.Where(o => !o.IsEmpty()),
+					data.Identifiers.Where(o => o != null && !o.IsEmpty()),
 					retVal,
 					context,
 					principal);
 			}
 
             // Relationships
-            if (data.Relationships != null)
+            if (data.Relationships != null) 
                 base.UpdateVersionedAssociatedItems<Core.Model.Entities.EntityRelationship, DbEntityRelationship>(
-                   data.Relationships.Where(o => !o.InversionIndicator && !o.IsEmpty()).ToList(),
+                   data.Relationships.Where(o => o != null && !o.InversionIndicator && !o.IsEmpty()).ToList(),
                     retVal,
                     context,
                     principal);
@@ -352,7 +352,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
             // Telecoms
             if (data.Telecoms != null)
                 base.UpdateVersionedAssociatedItems<Core.Model.Entities.EntityTelecomAddress, DbTelecomAddress>(
-                   data.Telecoms.Where(o => !o.IsEmpty()),
+                   data.Telecoms.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
@@ -360,7 +360,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
             // Extensions
             if (data.Extensions != null)
                 base.UpdateVersionedAssociatedItems<Core.Model.DataTypes.EntityExtension, DbEntityExtension>(
-                   data.Extensions.Where(o => !o.IsEmpty()),
+                   data.Extensions.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
@@ -368,7 +368,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
             // Names
             if (data.Names != null)
                 base.UpdateVersionedAssociatedItems<Core.Model.Entities.EntityName, DbEntityName>(
-                   data.Names.Where(o => !o.IsEmpty()),
+                   data.Names.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
@@ -376,7 +376,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
             // Addresses
             if (data.Addresses != null)
                 base.UpdateVersionedAssociatedItems<Core.Model.Entities.EntityAddress, DbEntityAddress>(
-                   data.Addresses.Where(o => !o.IsEmpty()),
+                   data.Addresses.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
@@ -384,7 +384,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
             // Notes
             if (data.Notes != null)
                 base.UpdateVersionedAssociatedItems<Core.Model.DataTypes.EntityNote, DbEntityNote>(
-                   data.Notes.Where(o => !o.IsEmpty()),
+                   data.Notes.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
@@ -392,7 +392,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
             // Tags
             if (data.Tags != null)
                 base.UpdateAssociatedItems<Core.Model.DataTypes.EntityTag, DbEntityTag>(
-                   data.Tags.Where(o => !o.IsEmpty()),
+                   data.Tags.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
@@ -429,7 +429,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
 
 		        foreach (var entityIdentifier in uniqueIds)
 		        {
-			        if (context.Query<DbEntityIdentifier>(c => c.SourceKey != data.Key && c.AuthorityKey == entityIdentifier.AuthorityKey && c.Value == entityIdentifier.Value).Any())
+			        if (context.Query<DbEntityIdentifier>(c => c.SourceKey != data.Key && c.AuthorityKey == entityIdentifier.AuthorityKey && c.Value == entityIdentifier.Value && !c.ObsoleteVersionSequenceId.HasValue).Any())
 			        {
 				        throw new DuplicateNameException(entityIdentifier.Value);
 			        }
@@ -445,7 +445,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
             // Relationships
             if (data.Relationships != null)
                 base.UpdateVersionedAssociatedItems<Core.Model.Entities.EntityRelationship, DbEntityRelationship>(
-                   data.Relationships.Where(o => !o.InversionIndicator && !o.IsEmpty() && (o.SourceEntityKey == data.Key || !o.SourceEntityKey.HasValue)).ToList(),
+                   data.Relationships.Where(o => o != null && !o.InversionIndicator && !o.IsEmpty() && (o.SourceEntityKey == data.Key || !o.SourceEntityKey.HasValue)).ToList(),
                     retVal,
                     context,
                     principal);
@@ -453,7 +453,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
             // Telecoms
             if (data.Telecoms != null)
                 base.UpdateVersionedAssociatedItems<Core.Model.Entities.EntityTelecomAddress, DbTelecomAddress>(
-                   data.Telecoms.Where(o => !o.IsEmpty()),
+                   data.Telecoms.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
@@ -461,7 +461,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
             // Extensions
             if (data.Extensions != null)
                 base.UpdateVersionedAssociatedItems<Core.Model.DataTypes.EntityExtension, DbEntityExtension>(
-                   data.Extensions.Where(o => !o.IsEmpty()),
+                   data.Extensions.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
@@ -469,7 +469,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
             // Names
             if (data.Names != null)
                 base.UpdateVersionedAssociatedItems<Core.Model.Entities.EntityName, DbEntityName>(
-                   data.Names.Where(o => !o.IsEmpty()),
+                   data.Names.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
@@ -477,7 +477,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
             // Addresses
             if (data.Addresses != null)
                 base.UpdateVersionedAssociatedItems<Core.Model.Entities.EntityAddress, DbEntityAddress>(
-                   data.Addresses.Where(o => !o.IsEmpty()),
+                   data.Addresses.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
@@ -485,7 +485,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
             // Notes
             if (data.Notes != null)
                 base.UpdateVersionedAssociatedItems<Core.Model.DataTypes.EntityNote, DbEntityNote>(
-                   data.Notes.Where(o => !o.IsEmpty()),
+                   data.Notes.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
@@ -493,7 +493,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
             // Tags
             if (data.Tags != null)
                 base.UpdateAssociatedItems<Core.Model.DataTypes.EntityTag, DbEntityTag>(
-                   data.Tags.Where(o => !o.IsEmpty()),
+                   data.Tags.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
@@ -582,5 +582,6 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
 
             }
         }
+        
     }
 }

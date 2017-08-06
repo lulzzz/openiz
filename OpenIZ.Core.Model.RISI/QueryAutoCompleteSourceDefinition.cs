@@ -15,7 +15,7 @@
  * the License.
  *
  * User: khannan
- * Date: 2017-1-5
+ * Date: 2017-1-6
  */
 
 using Newtonsoft.Json;
@@ -27,8 +27,8 @@ namespace OpenIZ.Core.Model.RISI
 	/// Represents an auto-complete source definition which is that of a query.
 	/// </summary>
 	[XmlType(nameof(QueryAutoCompleteSourceDefinition), Namespace = "http://openiz.org/risi")]
-    [JsonObject(nameof(QueryAutoCompleteSourceDefinition))]
-    public class QueryAutoCompleteSourceDefinition : AutoCompleteSourceDefinition
+	[JsonObject(nameof(QueryAutoCompleteSourceDefinition))]
+	public class QueryAutoCompleteSourceDefinition : AutoCompleteSourceDefinition
 	{
 		/// <summary>
 		/// Initializes a new instance of the <see cref="QueryAutoCompleteSourceDefinition"/> class.

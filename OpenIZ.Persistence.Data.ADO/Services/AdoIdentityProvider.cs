@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-6-14
+ * Date: 2017-1-15
  */
 using MARC.HI.EHRS.SVC.Core.Services.Security;
 using System;
@@ -91,7 +91,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services
                 this.Authenticated?.Invoke(this, new AuthenticatedEventArgs(userName, principal, true));
                 return principal;
             }
-            catch (SecurityException e)
+            catch (Exception e)
             {
                 this.m_traceSource.TraceEvent(TraceEventType.Verbose, e.HResult, "Invalid credentials : {0}/{1}", userName, password);
 
@@ -276,6 +276,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services
         /// <summary>
         /// Create a basic user
         /// </summary>
+        [PolicyPermission(System.Security.Permissions.SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.CreateIdentity)]
         public IIdentity CreateIdentity(string userName, string password, IPrincipal authContext)
         {
 
@@ -337,6 +338,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services
         /// <summary>
         /// Delete the specified identity
         /// </summary>
+        [PolicyPermission(System.Security.Permissions.SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.AlterIdentity)]
         public void DeleteIdentity(string userName, IPrincipal authContext)
         {
             if (String.IsNullOrEmpty(userName))
@@ -375,6 +377,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services
         /// <summary>
         /// Set the lockout status
         /// </summary>
+        [PolicyPermission(System.Security.Permissions.SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.AlterIdentity)]
         public void SetLockout(string userName, bool lockout, IPrincipal authContext)
         {
             if (String.IsNullOrEmpty(userName))
@@ -395,7 +398,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services
 
                     // Obsolete
 	                if (lockout)
-		                user.Lockout = DateTime.Now;
+		                user.Lockout = DateTime.MaxValue.AddDays(-10);
 	                else
 		                user.Lockout = null;
 
@@ -429,6 +432,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services
             else if (claim == null)
                 throw new ArgumentNullException(nameof(claim));
 
+           
             try
             {
                 using (var dataContext = this.m_configuration.Provider.GetWriteConnection())
@@ -480,6 +484,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services
             else if (claimType == null)
                 throw new ArgumentNullException(nameof(claimType));
 
+            
             try
             {
                 using (var dataContext = this.m_configuration.Provider.GetWriteConnection())

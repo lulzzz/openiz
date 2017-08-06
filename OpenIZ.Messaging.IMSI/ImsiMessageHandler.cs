@@ -29,9 +29,11 @@ using OpenIZ.Messaging.IMSI.Wcf.Behavior;
 using OpenIZ.Messaging.IMSI.Wcf.Serialization;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Configuration;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.ServiceModel;
 using System.ServiceModel.Description;
 using System.ServiceModel.Dispatcher;
@@ -64,6 +66,7 @@ namespace OpenIZ.Messaging.IMSI
     /// <summary>
     /// The IMSI Message Handler Daemon class
     /// </summary>
+    [Description("IMSI Message Service")]
     public class ImsiMessageHandler : IMessageHandlerService, IApiEndpointProvider
     {
 
@@ -149,6 +152,10 @@ namespace OpenIZ.Messaging.IMSI
         /// </summary>
         public bool Start()
         {
+            // Don't startup unless in OpenIZ
+            if (Assembly.GetEntryAssembly().GetName().Name != "OpenIZ")
+                return true;
+
             try
             {
                 this.Starting?.Invoke(this, EventArgs.Empty);

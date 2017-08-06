@@ -14,12 +14,11 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  *
- * User: justi
+ * User: khannan
  * Date: 2016-8-28
  */
 
 using OpenIZ.Core.Model.RISI;
-using System.Collections.Generic;
 using System.IO;
 using System.ServiceModel;
 using System.ServiceModel.Web;
@@ -197,6 +196,5 @@ namespace OpenIZ.Messaging.RISI.Wcf
 		/// <returns>Returns the update report format.</returns>
 		[WebInvoke(UriTemplate = "/format/{id}", BodyStyle = WebMessageBodyStyle.Bare, Method = "PUT")]
 		ReportFormat UpdateReportFormat(string id, ReportFormat reportFormat);
-        
 	}
 }

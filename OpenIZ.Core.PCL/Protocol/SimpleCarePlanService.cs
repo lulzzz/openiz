@@ -32,6 +32,8 @@ using System.Globalization;
 using OpenIZ.Core.Diagnostics;
 using OpenIZ.Core.Model.EntityLoader;
 using OpenIZ.Core.Model.DataTypes;
+using OpenIZ.Core.Model;
+using OpenIZ.Core.Model.Entities;
 
 namespace OpenIZ.Core.Protocol
 {
@@ -41,6 +43,12 @@ namespace OpenIZ.Core.Protocol
     /// </summary>
     public class SimpleCarePlanService : ICarePlanService
     {
+
+        /// <summary>
+        /// True if the view model initializer for the care plans should be ignored
+        /// </summary>
+        public bool IgnoreViewModelInitializer { get; set; }
+
         /// <summary>
         /// Represents a parameter dictionary
         /// </summary>
@@ -192,7 +200,7 @@ namespace OpenIZ.Core.Protocol
                             if (p.Participations.Count == 0 && p.VersionKey.HasValue)
                             {
                                 p.Participations = EntitySource.Current.Provider.Query<Act>(o => o.Participations.Where(g => g.ParticipationRole.Mnemonic == "RecordTarget").Any(g => g.PlayerEntityKey == currentProcessing.Key) &&
-                                    o.StatusConceptKey != StatusKeys.Nullified && o.StatusConceptKey != StatusKeys.Obsolete).OfType<Act>()
+                                    o.StatusConceptKey != StatusKeys.Nullified && o.StatusConceptKey != StatusKeys.Obsolete && o.StatusConceptKey != StatusKeys.Cancelled).OfType<Act>()
                                     .Select(a =>
                                     new ActParticipation()
                                     {
@@ -245,14 +253,29 @@ namespace OpenIZ.Core.Protocol
 
                 // Initialize for protocol execution
                 parmDict.Add("runProtocols", execProtocols.Distinct());
-                foreach (var o in this.Protocols.Distinct()) o.Initialize(currentProcessing, parmDict);
+                if(!this.IgnoreViewModelInitializer)
+                    foreach (var o in this.Protocols.Distinct()) o.Initialize(currentProcessing, parmDict);
+
                 parmDict.Remove("runProtocols");
 
                 List<Act> protocolActs = new List<Act>();
                 lock (currentProcessing)
                 {
                     var thdPatient = currentProcessing.Copy() as Patient;
-                    thdPatient.Participations = new List<ActParticipation>(currentProcessing.Participations.ToList().Where(o=>o.Act?.MoodConceptKey != ActMoodKeys.Propose && o.Act?.StatusConceptKey != StatusKeys.Nullified && o.Act?.StatusConceptKey != StatusKeys.Obsolete));
+                    thdPatient.Participations = new List<ActParticipation>(currentProcessing.Participations.ToList().Where(o=>o.Act?.MoodConceptKey != ActMoodKeys.Propose && o.Act?.StatusConceptKey != StatusKeys.Nullified && o.Act?.StatusConceptKey != StatusKeys.Obsolete && o.Act?.StatusConceptKey != StatusKeys.Cancelled));
+
+                    // Let's ensure that there are some properties loaded eh?
+                    if(this.IgnoreViewModelInitializer)
+                        foreach(var itm in thdPatient.LoadCollection<ActParticipation>("Participations"))
+                        {
+                            itm.LoadProperty<Act>("TargetAct").LoadProperty<Concept>("TypeConcept");
+                            foreach (var itmPtcpt in itm.LoadProperty<Act>("TargetAct").LoadCollection<ActParticipation>("Participations"))
+                            {
+                                itmPtcpt.LoadProperty<Concept>("ParticipationRole");
+                                itmPtcpt.LoadProperty<Entity>("PlayerEntity").LoadProperty<Concept>("TypeConcept");
+                                itmPtcpt.LoadProperty<Entity>("PlayerEntity").LoadProperty<Concept>("MoodConcept");
+                            };
+                        }
                     protocolActs = execProtocols.AsParallel().SelectMany(o => o.Calculate(thdPatient, parmDict)).OrderBy(o => o.StopTime - o.StartTime).ToList();
                 }
 
@@ -260,7 +283,7 @@ namespace OpenIZ.Core.Protocol
                 if (asEncounters)
                 {
                     List<PatientEncounter> encounters = new List<PatientEncounter>();
-                    foreach (var act in new List<Act>(protocolActs).Where(o => o.StartTime.HasValue && o.StopTime.HasValue).OrderBy(o => o.StartTime).OrderBy(o=>o.StopTime - o.StartTime))
+                    foreach (var act in new List<Act>(protocolActs).Where(o => o.StartTime.HasValue && o.StopTime.HasValue).OrderBy(o => o.StartTime).OrderBy(o=>(o.StopTime ?? o.ActTime.AddDays(7)) - o.StartTime))
                     {
 
                         act.StopTime = act.StopTime ?? act.ActTime;

@@ -14,32 +14,34 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  *
- * User: justi
+ * User: khannan
  * Date: 2016-8-2
  */
 
 using MARC.HI.EHRS.SVC.Core;
 using MARC.HI.EHRS.SVC.Core.Services;
+using OpenIZ.Core.Interop;
 using OpenIZ.Core.Wcf;
 using OpenIZ.Core.Wcf.Behavior;
+using OpenIZ.Core.Wcf.Security;
 using OpenIZ.Messaging.AMI.Configuration;
 using OpenIZ.Messaging.AMI.Wcf;
 using OpenIZ.Messaging.AMI.Wcf.Behavior;
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
-using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.ServiceModel;
 using System.ServiceModel.Description;
 using System.ServiceModel.Web;
-using OpenIZ.Core.Interop;
-using System.Linq;
-using OpenIZ.Core.Wcf.Security;
 
 namespace OpenIZ.Messaging.AMI
 {
 	/// <summary>
 	/// AMI Message handler
 	/// </summary>
+    [Description("AMI Message Service")]
 	public class AmiMessageHandler : IDaemonService, IApiEndpointProvider
 	{
 		/// <summary>
@@ -76,6 +78,34 @@ namespace OpenIZ.Messaging.AMI
 		public event EventHandler Stopping;
 
 		/// <summary>
+		/// Gets the API type
+		/// </summary>
+		public ServiceEndpointType ApiType
+		{
+			get
+			{
+				return ServiceEndpointType.AdministrationIntegrationService;
+			}
+		}
+
+		/// <summary>
+		/// Capabilities
+		/// </summary>
+		public ServiceEndpointCapabilities Capabilities
+		{
+			get
+			{
+				var caps = ServiceEndpointCapabilities.Compression;
+				if (this.m_webHost.Description.Behaviors.OfType<ServiceCredentials>().Any(o => o.UserNameAuthentication?.CustomUserNamePasswordValidator != null))
+					caps |= ServiceEndpointCapabilities.BasicAuth;
+				if (this.m_webHost.Description.Behaviors.OfType<ServiceAuthorizationBehavior>().Any(o => o.ServiceAuthorizationManager is JwtTokenServiceAuthorizationManager))
+					caps |= ServiceEndpointCapabilities.BearerAuth;
+
+				return caps;
+			}
+		}
+
+		/// <summary>
 		/// True if running
 		/// </summary>
 		public bool IsRunning
@@ -86,53 +116,28 @@ namespace OpenIZ.Messaging.AMI
 			}
 		}
 
-        /// <summary>
-        /// Gets the API type
-        /// </summary>
-        public ServiceEndpointType ApiType
-        {
-            get
-            {
-                return ServiceEndpointType.AdministrationIntegrationService;
-            }
-        }
-
-        /// <summary>
-        /// URL of the service
-        /// </summary>
-        public string[] Url
-        {
-            get
-            {
-                return this.m_webHost.Description.Endpoints.OfType<ServiceEndpoint>().Select(o => o.Address.Uri.ToString()).ToArray();
-            }
-        }
-
-        /// <summary>
-        /// Capabilities
-        /// </summary>
-        public ServiceEndpointCapabilities Capabilities
-        {
-            get
-            {
-                var caps = ServiceEndpointCapabilities.Compression;
-                if (this.m_webHost.Description.Behaviors.OfType<ServiceCredentials>().Any(o => o.UserNameAuthentication?.CustomUserNamePasswordValidator != null))
-                    caps |= ServiceEndpointCapabilities.BasicAuth;
-                if (this.m_webHost.Description.Behaviors.OfType<ServiceAuthorizationBehavior>().Any(o => o.ServiceAuthorizationManager is JwtTokenServiceAuthorizationManager))
-                    caps |= ServiceEndpointCapabilities.BearerAuth;
-
-
-                return caps;
-            }
-        }
-
-        /// <summary>
-        /// Start the service
-        /// </summary>
-        public bool Start()
+		/// <summary>
+		/// URL of the service
+		/// </summary>
+		public string[] Url
 		{
-			try
+			get
 			{
+				return this.m_webHost.Description.Endpoints.OfType<ServiceEndpoint>().Select(o => o.Address.Uri.ToString()).ToArray();
+			}
+		}
+
+		/// <summary>
+		/// Start the service
+		/// </summary>
+		public bool Start()
+		{
+            // Don't startup unless in OpenIZ
+            if (Assembly.GetEntryAssembly().GetName().Name != "OpenIZ")
+                return true;
+
+            try
+            {
 				this.Starting?.Invoke(this, EventArgs.Empty);
 
 				this.m_webHost = new WebServiceHost(typeof(AmiBehavior));
@@ -140,9 +145,9 @@ namespace OpenIZ.Messaging.AMI
 				foreach (ServiceEndpoint endpoint in this.m_webHost.Description.Endpoints)
 				{
 					this.tracer.TraceInformation("Starting AMI on {0}...", endpoint.Address);
-                    (endpoint.Binding as WebHttpBinding).ContentTypeMapper = new AmiContentTypeHandler();
+					(endpoint.Binding as WebHttpBinding).ContentTypeMapper = new AmiContentTypeHandler();
 
-                    endpoint.EndpointBehaviors.Add(new AmiRestEndpointBehavior());
+					endpoint.EndpointBehaviors.Add(new AmiRestEndpointBehavior());
 					endpoint.EndpointBehaviors.Add(new WcfErrorEndpointBehavior());
 				}
 

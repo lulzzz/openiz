@@ -99,28 +99,12 @@ namespace OpenIZ.Messaging.AMI.Client
 			}
 		}
 
-        /// <summary>
-        /// Perform a ping
-        /// </summary>
-        public bool Ping()
-        {
-            try
-            {
-                this.Client.Invoke<Object, Object>("PING", "/", null, null);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Creates a security application.
-        /// </summary>
-        /// <param name="applicationInfo">The security application to be created.</param>
-        /// <returns>Returns the created security application.</returns>
-        public SecurityApplicationInfo CreateApplication(SecurityApplicationInfo applicationInfo)
+		/// <summary>
+		/// Creates a security application.
+		/// </summary>
+		/// <param name="applicationInfo">The security application to be created.</param>
+		/// <returns>Returns the created security application.</returns>
+		public SecurityApplicationInfo CreateApplication(SecurityApplicationInfo applicationInfo)
 		{
 			return this.Client.Post<SecurityApplicationInfo, SecurityApplicationInfo>("application", this.Client.Accept, applicationInfo);
 		}
@@ -304,49 +288,6 @@ namespace OpenIZ.Messaging.AMI.Client
 			return this.Client.Delete<SecurityUserInfo>($"user/{id}");
 		}
 
-		#region IDisposable Support
-
-		private bool disposedValue = false; // To detect redundant calls
-
-		/// <summary>
-		/// Dispose of any resources.
-		/// </summary>
-		public void Dispose()
-		{
-			// Do not change this code. Put cleanup code in Dispose(bool disposing) above.
-			Dispose(true);
-			// TODO: uncomment the following line if the finalizer is overridden above.
-			// GC.SuppressFinalize(this);
-		}
-
-		/// <summary>
-		/// Dispose of any managed resources.
-		/// </summary>
-		/// <param name="disposing">Whether the current invocation is disposing.</param>
-		protected virtual void Dispose(bool disposing)
-		{
-			if (!disposedValue)
-			{
-				if (disposing)
-				{
-					this.Client?.Dispose();
-				}
-
-				// TODO: free unmanaged resources (unmanaged objects) and override a finalizer below.
-				// TODO: set large fields to null.
-
-				disposedValue = true;
-			}
-		}
-
-		// TODO: override a finalizer only if Dispose(bool disposing) above has code to free unmanaged resources.
-		// ~AmiServiceClient() {
-		//   // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
-		//   Dispose(false);
-		// }
-
-		#endregion IDisposable Support
-
 		/// <summary>
 		/// Downloads the applet.
 		/// </summary>
@@ -383,12 +324,20 @@ namespace OpenIZ.Messaging.AMI.Client
 			return this.Client.Get<AlertMessageInfo>($"alert/{id}");
 		}
 
-		/// <summary>
-		/// Gets a list of alerts.
+        /// <summary>
+		/// Gets a diagnostic alert.
 		/// </summary>
-		/// <param name="query">The query expression to use to find the alerts.</param>
-		/// <returns>Returns a collection of alerts which match the specified criteria.</returns>
-		public AmiCollection<AlertMessageInfo> GetAlerts(Expression<Func<AlertMessage, bool>> query)
+		public DiagnosticReport GetServerDiagnoticReport()
+        {
+            return this.Client.Get<DiagnosticReport>($"sherlock");
+        }
+
+        /// <summary>
+        /// Gets a list of alerts.
+        /// </summary>
+        /// <param name="query">The query expression to use to find the alerts.</param>
+        /// <returns>Returns a collection of alerts which match the specified criteria.</returns>
+        public AmiCollection<AlertMessageInfo> GetAlerts(Expression<Func<AlertMessage, bool>> query)
 		{
 			return this.Client.Get<AmiCollection<AlertMessageInfo>>("alert", QueryExpressionBuilder.BuildQuery(query).ToArray());
 		}
@@ -608,6 +557,65 @@ namespace OpenIZ.Messaging.AMI.Client
 		}
 
 		/// <summary>
+		/// Perform a ping
+		/// </summary>
+		public bool Ping()
+		{
+			try
+			{
+				this.Client.Invoke<Object, Object>("PING", "/", null, null);
+				return true;
+			}
+			catch
+			{
+				return false;
+			}
+		}
+
+		#region IDisposable Support
+
+		private bool disposedValue = false; // To detect redundant calls
+
+		/// <summary>
+		/// Dispose of any resources.
+		/// </summary>
+		public void Dispose()
+		{
+			// Do not change this code. Put cleanup code in Dispose(bool disposing) above.
+			Dispose(true);
+			// TODO: uncomment the following line if the finalizer is overridden above.
+			// GC.SuppressFinalize(this);
+		}
+
+		/// <summary>
+		/// Dispose of any managed resources.
+		/// </summary>
+		/// <param name="disposing">Whether the current invocation is disposing.</param>
+		protected virtual void Dispose(bool disposing)
+		{
+			if (!disposedValue)
+			{
+				if (disposing)
+				{
+					this.Client?.Dispose();
+				}
+
+				// TODO: free unmanaged resources (unmanaged objects) and override a finalizer below.
+				// TODO: set large fields to null.
+
+				disposedValue = true;
+			}
+		}
+
+		// TODO: override a finalizer only if Dispose(bool disposing) above has code to free unmanaged resources.
+		// ~AmiServiceClient() {
+		//   // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
+		//   Dispose(false);
+		// }
+
+		#endregion IDisposable Support
+
+		/// <summary>
 		/// Create security password reset request.
 		/// </summary>
 		/// <param name="resetInfo">The reset information.</param>
@@ -638,6 +646,16 @@ namespace OpenIZ.Messaging.AMI.Client
 		}
 
 		/// <summary>
+		/// Submits a diagnostic report.
+		/// </summary>
+		/// <param name="report">The diagnostic report.</param>
+		/// <returns>Returns the submitted diagnostic report.</returns>
+		public void SubmitAudit(AuditInfo report)
+		{
+			this.Client.Post<AuditInfo, object>("audit", this.Client.Accept, report);
+		}
+
+		/// <summary>
 		/// Submits a certificate signing request to the AMI.
 		/// </summary>
 		/// <param name="submissionRequest">The certificate signing request.</param>
@@ -657,23 +675,13 @@ namespace OpenIZ.Messaging.AMI.Client
 			return this.Client.Post<DiagnosticReport, DiagnosticReport>("sherlock", this.Client.Accept, report);
 		}
 
-        /// <summary>
-		/// Submits a diagnostic report.
+		/// <summary>
+		/// Updates an alert.
 		/// </summary>
-		/// <param name="report">The diagnostic report.</param>
-		/// <returns>Returns the submitted diagnostic report.</returns>
-		public void SubmitAudit(AuditInfo report)
-        {
-            this.Client.Post<AuditInfo, object>("audit", this.Client.Accept, report);
-        }
-
-        /// <summary>
-        /// Updates an alert.
-        /// </summary>
-        /// <param name="alertId">The id of the alert to be updated.</param>
-        /// <param name="alertMessageInfo">The alert message info containing the updated information.</param>
-        /// <returns>Returns the updated alert.</returns>
-        public AlertMessageInfo UpdateAlert(string alertId, AlertMessageInfo alertMessageInfo)
+		/// <param name="alertId">The id of the alert to be updated.</param>
+		/// <param name="alertMessageInfo">The alert message info containing the updated information.</param>
+		/// <returns>Returns the updated alert.</returns>
+		public AlertMessageInfo UpdateAlert(string alertId, AlertMessageInfo alertMessageInfo)
 		{
 			return this.Client.Put<AlertMessageInfo, AlertMessageInfo>($"alert/{alertId}", this.Client.Accept, alertMessageInfo);
 		}

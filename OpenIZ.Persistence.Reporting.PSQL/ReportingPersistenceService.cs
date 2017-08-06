@@ -15,20 +15,19 @@
  * the License.
  *
  * User: khannan
- * Date: 2017-1-15
+ * Date: 2017-4-16
  */
 
-using System;
-using System.Configuration;
-using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
 using MARC.HI.EHRS.SVC.Core;
 using MARC.HI.EHRS.SVC.Core.Services;
 using OpenIZ.Core.Exceptions;
 using OpenIZ.Core.Model.Map;
 using OpenIZ.OrmLite;
 using OpenIZ.Persistence.Reporting.PSQL.Configuration;
+using System;
+using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 
 namespace OpenIZ.Persistence.Reporting.PSQL
 {

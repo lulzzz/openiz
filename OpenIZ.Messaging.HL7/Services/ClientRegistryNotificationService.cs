@@ -1,23 +1,22 @@
 ﻿/*
  * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
  *
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you
- * may not use this file except in compliance with the License. You may
- * obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
  * the License.
- *
+ * 
  * User: khannan
- * Date: 2016-11-3
+ * Date: 2016-11-30
  */
-
 using MARC.Everest.Threading;
 using MARC.HI.EHRS.SVC.Core;
 using MARC.HI.EHRS.SVC.Core.Services;
@@ -30,6 +29,7 @@ using OpenIZ.Messaging.HL7.Notifier;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using OpenIZ.Core.Security;
 
 namespace OpenIZ.Messaging.HL7.Services
 {
@@ -42,22 +42,22 @@ namespace OpenIZ.Messaging.HL7.Services
 		/// <summary>
 		/// The internal reference to the <see cref="NotificationConfiguration"/> instance.
 		/// </summary>
-		private NotificationConfiguration configuration;
+		private readonly NotificationConfiguration configuration;
 
 		/// <summary>
 		/// The internal reference to the sync lock instance.
 		/// </summary>
-		private object syncLock = new object();
+		private readonly object syncLock = new object();
 
 		/// <summary>
 		/// The internal reference to the <see cref="WaitThreadPool"/> instance.
 		/// </summary>
-		private WaitThreadPool threadPool;
+		private readonly WaitThreadPool threadPool;
 
 		/// <summary>
 		/// The internal reference to the <see cref="TraceSource"/> instance.
 		/// </summary>
-		private TraceSource tracer = new TraceSource("OpenIZ.Messaging.HL7");
+		private readonly TraceSource tracer = new TraceSource("OpenIZ.Messaging.HL7");
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ClientRegistryNotificationService"/> class.

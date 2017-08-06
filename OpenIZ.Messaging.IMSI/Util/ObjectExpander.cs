@@ -1,10 +1,29 @@
-﻿using MARC.HI.EHRS.SVC.Core;
+﻿/*
+ * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
+ *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
+ * the License.
+ * 
+ * User: justi
+ * Date: 2016-11-30
+ */
+using MARC.HI.EHRS.SVC.Core;
 using OpenIZ.Core.Model;
 using OpenIZ.Core.Model.Attributes;
 using OpenIZ.Core.Model.EntityLoader;
 using OpenIZ.Core.Model.Interfaces;
 using OpenIZ.Core.Model.Query;
-using OpenIZ.Core.Services;
+using OpenIZ.Core.Model;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -288,16 +307,33 @@ namespace OpenIZ.Messaging.IMSI.Util
             var propertyValue = propertyInfo.GetValue(scope);
             if (propertyValue is IList && (propertyValue as IList).Count == 0) // need to load
             {
-                propertyValue = LoadCollection(propertyInfo.PropertyType, scope as IIdentifiedEntity);
-                propertyInfo.SetValue(scope, propertyValue);
-                scope = propertyValue;
+
+                var rmi = typeof(ExtensionMethods).GetGenericMethod(nameof(ExtensionMethods.LoadCollection), new Type[] { propertyInfo.PropertyType.StripGeneric() }, new Type[] { scope.GetType(), typeof(String) });
+                if (rmi == null)
+                {
+                    propertyValue = LoadCollection(propertyInfo.PropertyType, scope as IIdentifiedEntity);
+                    propertyInfo.SetValue(scope, propertyValue);
+                    scope = propertyValue;
+                }
+                else
+                    propertyValue = rmi.Invoke(null, new object[] { scope, propertyInfo.Name });
             }
             else if (propertyValue is Guid) // A key!
             {
                 var backingFieldInfo = scope.GetType().GetRuntimeProperties().FirstOrDefault(o => o.GetCustomAttribute<SerializationReferenceAttribute>()?.RedirectProperty == propertyInfo.Name);
                 if (backingFieldInfo == null) return null; // stop 
-                propertyValue = LoadRelated(backingFieldInfo.PropertyType, (Guid)propertyValue);
-                backingFieldInfo.SetValue(scope, propertyValue);
+                var rmi = typeof(ExtensionMethods).GetGenericMethod(nameof(ExtensionMethods.LoadProperty), new Type[] { backingFieldInfo.PropertyType }, new Type[] { scope.GetType(), typeof(String) });
+
+                if (rmi == null)
+                {
+                    var existingValue = backingFieldInfo.GetValue(scope);
+                    if (existingValue != null) return existingValue;
+                    propertyValue = LoadRelated(backingFieldInfo.PropertyType, (Guid)propertyValue);
+                    backingFieldInfo.SetValue(scope, propertyValue);
+                }
+                else
+                    propertyValue = rmi.Invoke(null, new object[] { scope, backingFieldInfo.Name });
+
             }
 
             return propertyValue;

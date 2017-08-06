@@ -1,4 +1,23 @@
-﻿using OpenIZ.Core.Services;
+﻿/*
+ * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
+ *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
+ * the License.
+ * 
+ * User: justi
+ * Date: 2016-11-30
+ */
+using OpenIZ.Core.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -90,7 +109,7 @@ namespace OpenIZ.Core.Services.Impl
                     var serializationName = pi.GetCustomAttribute<JsonPropertyAttribute>().PropertyName;
                     if (ignoreProperties?.Contains($"{path}{serializationName}") == true) continue;
 
-                    object existingValue = pi.GetValue(existing),
+                    object existingValue = existing.LoadProperty(pi.Name),
                         updatedValue = pi.GetValue(updated);
 
                     // Skip ignore properties
@@ -104,7 +123,8 @@ namespace OpenIZ.Core.Services.Impl
                         if (existingValue != null && updatedValue == null) // remove
                         {
                             // Generate tests
-                            retVal.AddRange(this.GenerateTests(existingValue, $"{path}{serializationName}"));
+                            if(typeof(IdentifiedData).GetTypeInfo().IsAssignableFrom(pi.PropertyType.GetTypeInfo()))
+                                retVal.AddRange(this.GenerateTests(existingValue, $"{path}{serializationName}"));
                             retVal.Add(new PatchOperation(PatchOperationType.Remove, $"{path}{serializationName}", null));
                         }
                         else if ((existingValue as IdentifiedData)?.SemanticEquals(updatedValue as IdentifiedData) == false) // They are different
@@ -296,7 +316,13 @@ namespace OpenIZ.Core.Services.Impl
                             if (instance != null)
                                 (applyTo as IList).Remove(instance);
                             else
-                                throw new PatchAssertionException("Cannot remove a non-existing relationship");
+                            {
+                                // HACK: Patches with no version code don't adhere to ths
+                                if (String.IsNullOrEmpty(patch.Version) && force)
+                                    this.m_tracer.TraceWarning("Patch specifies removal of non-existing relationship {0} -> Ignoring", op);
+                                else
+                                    throw new PatchAssertionException("Cannot remove a non-existing relationship");
+                            }
                         }
                         else if (op.Value == null)
                             property.SetValue(applyParent, null);

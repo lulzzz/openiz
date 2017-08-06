@@ -1,6 +1,6 @@
 ﻿/*
  * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
- * 
+ *
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you 
  * may not use this file except in compliance with the License. You may 
@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-6-14
+ * Date: 2017-1-14
  */
 using OpenIZ.OrmLite.Attributes;
 using OpenIZ.Persistence.Data.ADO.Data.Model.Acts;
@@ -57,7 +57,7 @@ namespace OpenIZ.Persistence.Data.ADO.Data.Model.DataType
         /// Gets or sets the authority identifier.
         /// </summary>
         /// <value>The authority identifier.</value>
-        [Column("aut_id"), ForeignKey(typeof(DbAssigningAuthority), nameof(DbAssigningAuthority.Key))]
+        [Column("aut_id"), ForeignKey(typeof(DbAssigningAuthority), nameof(DbAssigningAuthority.Key)), AlwaysJoin]
         public Guid AuthorityKey
         {
             get;

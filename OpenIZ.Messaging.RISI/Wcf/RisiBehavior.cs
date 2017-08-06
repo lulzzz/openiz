@@ -14,19 +14,16 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  *
- * User: justi
+ * User: khannan
  * Date: 2016-8-28
  */
 
 using MARC.HI.EHRS.SVC.Core;
-using MARC.HI.EHRS.SVC.Core.Services;
 using OpenIZ.Core.Model.RISI;
 using OpenIZ.Reporting.Core;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.ServiceModel;
-using System.Linq;
 
 namespace OpenIZ.Messaging.RISI.Wcf
 {

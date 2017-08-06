@@ -17,7 +17,7 @@
  * User: justi
  * Date: 2016-8-14
  */
-using MARC.HI.EHRS.SVC.Core.Plugins;
+using MARC.HI.EHRS.SVC.Core.Attributes;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -30,7 +30,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Mohawk College of Applied Arts and Technology")]
 [assembly: AssemblyProduct("Open Immunize (http://openiz.org)")]
-[assembly: AssemblyCopyright("Copyright (C) 2016, Mohawk College of Applied Arts and Technology")]
+[assembly: AssemblyCopyright("Copyright (C) 2015-2017, Mohawk College of Applied Arts and Technology")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -51,9 +51,9 @@ using System.Runtime.InteropServices;
 //
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
-// [assembly: AssemblyVersion("0.9.4.*")][assembly: AssemblyInformationalVersion("Chippewa")]
-[assembly: AssemblyVersion("0.9.4.*")][assembly: AssemblyInformationalVersion("Chippewa")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+// [assembly: AssemblyVersion("0.9.7.*")][assembly: AssemblyInformationalVersion("Edmonton CTP4")]
+[assembly: AssemblyVersion("0.9.7.*")][assembly: AssemblyInformationalVersion("Edmonton CTP4")]
+[assembly: AssemblyFileVersion("0.9.7.4")]
 
 // Assembly plugin info
 [assembly: AssemblyPlugin()]

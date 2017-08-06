@@ -1,4 +1,23 @@
-﻿using OpenIZ.Core.Model.Map;
+﻿/*
+ * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
+ *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
+ * the License.
+ * 
+ * User: justi
+ * Date: 2017-1-21
+ */
+using OpenIZ.Core.Model.Map;
 using OpenIZ.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
@@ -10,6 +29,8 @@ using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 using OpenIZ.Core.Data.Warehouse;
+using System.Threading;
+using System.IO;
 
 namespace OpenIZ.OrmLite
 {
@@ -165,6 +186,34 @@ namespace OpenIZ.OrmLite
 #endif
         }
 
+#if DBPERF
+        private static object s_lockObject = new object();
+        /// <summary>
+        /// Performance monitor
+        /// </summary>
+        private void PerformanceMonitor(SqlStatement stmt, Stopwatch sw)
+        {
+            sw.Stop();
+            if(sw.ElapsedMilliseconds > 5)
+            {
+                lock(s_lockObject)
+                {
+                    using (var tw = File.AppendText("dbperf.xml"))
+                    {
+                        tw.WriteLine($"<sql><cmd>{this.GetQueryLiteral(stmt.Build())}</cmd><elapsed>{sw.ElapsedMilliseconds}</elapsed>");
+                        tw.WriteLine($"<stack><[!CDATA[{new System.Diagnostics.StackTrace(true).ToString()}]]></stack><plan><![CDATA[");
+                        stmt = this.CreateSqlStatement("EXPLAIN ").Append(stmt);
+                        using (var dbc = this.m_provider.CreateCommand(this, stmt))
+                            using (var rdr = dbc.ExecuteReader())
+                                while (rdr.Read())
+                                    tw.WriteLine(rdr[0].ToString());
+                        tw.WriteLine("]]></plan></sql>");
+                    }
+                }
+            }
+            sw.Start();
+        }
+#endif
 
 
         /// <summary>
@@ -261,9 +310,13 @@ namespace OpenIZ.OrmLite
                     {
                         using (var rdr = dbc.ExecuteReader())
                             return this.ReaderToResult(returnType, rdr);
+
                     }
                     finally
                     {
+#if DBPERF
+                        this.PerformanceMonitor(stmt, sw);
+#endif
                         if (!this.IsPreparedCommand(dbc))
                             dbc.Dispose();
                     }
@@ -335,6 +388,10 @@ namespace OpenIZ.OrmLite
                     }
                     finally
                     {
+
+#if DBPERF
+                        this.PerformanceMonitor(stmt, sw);
+#endif
                         if (!this.IsPreparedCommand(dbc))
                             dbc.Dispose();
                     }
@@ -370,6 +427,9 @@ namespace OpenIZ.OrmLite
                     }
                     finally
                     {
+#if DBPERF
+                        this.PerformanceMonitor(stmt, sw);
+#endif
                         if (!this.IsPreparedCommand(dbc))
                             dbc.Dispose();
                     }
@@ -410,11 +470,15 @@ namespace OpenIZ.OrmLite
                             if (!rdr.Read()) return retVal;
                             else throw new InvalidOperationException("Sequence contains more than one element");
                         }
+
                     }
                     finally
                     {
+#if DBPERF
+                        this.PerformanceMonitor(stmt, sw);
+#endif
                         if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                     }
                 }
 
@@ -610,13 +674,16 @@ namespace OpenIZ.OrmLite
                     var dbc = this.m_provider.CreateCommand(this, query);
                     try
                     {
-                        using (var rdr = dbc.ExecuteReader())
+                        using (var rdr = dbc.ExecuteReader()) 
                             return this.ReaderToCollection<TModel>(rdr).ToList();
                     }
                     finally
                     {
+#if DBPERF
+                        this.PerformanceMonitor(query, sw);
+#endif
                         if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                     }
                 }
 
@@ -661,11 +728,15 @@ namespace OpenIZ.OrmLite
                     {
                         using (var rdr = dbc.ExecuteReader())
                             return this.ReaderToCollection<TModel>(rdr).ToList();
+
                     }
                     finally
                     {
+#if DBPERF
+                        this.PerformanceMonitor(query, sw);
+#endif
                         if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                             dbc.Dispose();
                     }
                 }
 

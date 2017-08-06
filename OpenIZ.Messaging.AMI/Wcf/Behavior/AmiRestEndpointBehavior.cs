@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  *
- * User: justi
+ * User: khannan
  * Date: 2016-8-2
  */
 
@@ -45,10 +45,10 @@ namespace OpenIZ.Messaging.AMI.Wcf.Behavior
 		/// <param name="endpointDispatcher">The endpoint dispatcher of the endpoint.</param>
 		public void ApplyDispatchBehavior(ServiceEndpoint endpoint, EndpointDispatcher endpointDispatcher)
 		{
-            endpointDispatcher.DispatchRuntime.MessageInspectors.Add(new AmiMessageInspector());
+			endpointDispatcher.DispatchRuntime.MessageInspectors.Add(new AmiMessageInspector());
 
-            // Apply to each operation the AMI formatter
-            foreach (var op in endpoint.Contract.Operations)
+			// Apply to each operation the AMI formatter
+			foreach (var op in endpoint.Contract.Operations)
 			{
 				op.OperationBehaviors.Add(new AmiSerializerOperationBehavior());
 			}

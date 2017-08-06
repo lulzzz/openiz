@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-11-3
+ * Date: 2016-11-30
  */
 using MARC.HI.EHRS.SVC.Core.Services.Security;
 using System;
@@ -53,6 +53,21 @@ namespace OpenIZ.Core.Security
         public string EncodePassword(string password)
         {
             SHA1 hasher = SHA1.Create();
+            return BitConverter.ToString(hasher.ComputeHash(Encoding.UTF8.GetBytes(password))).Replace("-", "").ToLower();
+        }
+    }
+
+    /// <summary>
+    /// SHA1 password generator service
+    /// </summary>
+    public class MD5PasswordHashingService : IPasswordHashingService
+    {
+        /// <summary>
+        /// Encode a password using the SHA256 encoding
+        /// </summary>
+        public string EncodePassword(string password)
+        {
+            MD5 hasher = MD5.Create();
             return BitConverter.ToString(hasher.ComputeHash(Encoding.UTF8.GetBytes(password))).Replace("-", "").ToLower();
         }
     }

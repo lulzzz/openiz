@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-11-3
+ * Date: 2016-11-30
  */
 using MARC.HI.EHRS.SVC.Core.Services;
 using OpenIZ.Core.Model.AMI.Diagnostics;
@@ -41,7 +41,7 @@ using OpenIZ.Core.Security;
 namespace OpenIZ.Persistence.Diagnostics.Jira
 {
     /// <summary>
-    /// Diagnostic report persistence service
+    /// Diagnostic report persistence service.
     /// </summary>
     public class DiagnosticReportPersistenceService : IDataPersistenceService<DiagnosticReport>
     {
@@ -52,10 +52,10 @@ namespace OpenIZ.Persistence.Diagnostics.Jira
         // Configuration
         private JiraServiceConfiguration m_configuration = ApplicationContext.Current.GetService<IConfigurationManager>().GetSection("openiz.persistence.diagnostics.jira") as JiraServiceConfiguration;
 
-        /// <summary>
-        /// Default ctor
-        /// </summary>
-        public DiagnosticReportPersistenceService()
+		/// <summary>
+		/// Initializes a new instance of the <see cref="DiagnosticReportPersistenceService"/> class.
+		/// </summary>
+		public DiagnosticReportPersistenceService()
         {
         }
 

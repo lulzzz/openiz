@@ -1,23 +1,22 @@
 ﻿/*
  * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
  *
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you
- * may not use this file except in compliance with the License. You may
- * obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
  * the License.
- *
+ * 
  * User: justi
  * Date: 2016-7-16
  */
-
 using Newtonsoft.Json;
 using OpenIZ.Core.Model.Attributes;
 using OpenIZ.Core.Model.Constants;
@@ -67,6 +66,11 @@ namespace OpenIZ.Core.Model.Entities
 		/// <summary>
 		/// Gets or sets the industry in which the organization operates
 		/// </summary>
+        /// <remarks>
+        /// The industry concept is used to classify the industrial sector to which an organization belongs. For example,
+        /// an organization may be of type NGO, but the industry in which that organization operates is Healthcare
+        /// </remarks>
+        /// <see cref="IndustryConceptKey"/>
 		[SerializationReference(nameof(IndustryConceptKey))]
 		[XmlIgnore, JsonIgnore]
 		public Concept IndustryConcept
@@ -83,7 +87,15 @@ namespace OpenIZ.Core.Model.Entities
 			}
 		}
 
-		[EditorBrowsable(EditorBrowsableState.Never)]
+        /// <summary>
+        /// Gets or sets the concept key which classifies the industry in which the organization operates
+        /// </summary>
+        /// <remarks>
+        /// The industry concept is used to classify the industrial sector to which an organization belongs. For example,
+        /// an organization may be of type NGO, but the industry in which that organization operates is Healthcare
+        /// </remarks>
+        /// <see cref="IndustryConcept"/>
+        [EditorBrowsable(EditorBrowsableState.Never)]
 		[XmlElement("industryConcept"), JsonProperty("industryConcept")]
 		public Guid? IndustryConceptKey
 		{

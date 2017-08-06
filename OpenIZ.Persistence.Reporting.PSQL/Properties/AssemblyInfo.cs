@@ -15,7 +15,7 @@
  * the License.
  *
  * User: khannan
- * Date: 2017-1-15
+ * Date: 2017-1-16
  */
 
 using System.Reflection;
@@ -51,5 +51,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("0.9.4.*")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("0.9.7.*")]
+[assembly: AssemblyFileVersion("0.9.7.4")]

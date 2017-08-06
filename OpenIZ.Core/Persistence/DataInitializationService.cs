@@ -39,13 +39,15 @@ using System.Threading.Tasks;
 using System.Xml.Serialization;
 using OpenIZ.Core.Model.DataTypes;
 using OpenIZ.Core.Model.Interfaces;
+using System.ComponentModel;
 
 namespace OpenIZ.Core.Persistence
 {
     /// <summary>
     /// Data initialization service
     /// </summary>
-    public class DataInitializationService : IDaemonService
+    [Description("Dataset Installation Service")]
+    public class DataInitializationService : IDaemonService, IReportProgressChanged
     {
 
         // Trace source
@@ -78,6 +80,10 @@ namespace OpenIZ.Core.Persistence
         /// Fired when the service is stopping
         /// </summary>
         public event EventHandler Stopping;
+        /// <summary>
+        /// Fired when progress changes
+        /// </summary>
+        public event EventHandler<Services.ProgressChangedEventArgs> ProgressChanged;
 
         /// <summary>
         /// Event handler which fires after startup
@@ -94,12 +100,14 @@ namespace OpenIZ.Core.Persistence
 
                 this.m_traceSource.TraceInformation("Applying {0} ({1} objects)...", ds.Id, ds.Action.Count);
 
-
+                int i = 0;
                 foreach (var itm in ds.Action.Where(o=>o.Element != null))
                 {
 
                     try
                     {
+                        this.ProgressChanged?.Invoke(this, new Services.ProgressChangedEventArgs(i++ / (float)ds.Action.Count, ds.Id));
+
                         // IDP Type
                         Type idpType = typeof(IDataPersistenceService<>);
                         idpType = idpType.MakeGenericType(new Type[] { itm.Element.GetType() });
@@ -161,8 +169,16 @@ namespace OpenIZ.Core.Persistence
                         if (target is IVersionedAssociation)
                         {
                             var ivr = target as IVersionedAssociation;
+
+                            // Get the type this is bound to
+                            Type stype = target.GetType();
+                            while (!stype.IsGenericType || stype.GetGenericTypeDefinition() != typeof(VersionedAssociation<>))
+                                stype = stype.BaseType;
+
                             ApplicationContext.Current.GetService<IDataCachingService>()?.Remove(ivr.SourceEntityKey.Value);
-                            ivr.EffectiveVersionSequenceId = ApplicationContext.Current.GetService<IDataPersistenceService<Concept>>().Get(new Identifier<Guid>(ivr.SourceEntityKey.Value), AuthenticationContext.Current.Principal, true)?.VersionSequence;
+                            var idt = typeof(IDataPersistenceService<>).MakeGenericType(stype.GetGenericArguments()[0]);
+                            var idp = ApplicationContext.Current.GetService(idt) as IDataPersistenceService;
+                            ivr.EffectiveVersionSequenceId = (idp.Get(ivr.SourceEntityKey.Value) as IVersionedEntity)?.VersionSequence;
                             if (ivr.EffectiveVersionSequenceId == null)
                                 throw new KeyNotFoundException($"Dataset contains a reference to an unkown source entity : {ivr.SourceEntityKey}");
                             target = ivr;
@@ -196,51 +212,61 @@ namespace OpenIZ.Core.Persistence
         {
             this.m_persistenceHandler = (o, e) => {
 
-                try
+                this.InstallDataDirectory();
+            };
+        }
+
+        /// <summary>
+        /// Install data directory contents
+        /// </summary>
+        public void InstallDataDirectory(EventHandler<Services.ProgressChangedEventArgs> fileProgress = null)
+        {
+            try
+            {
+                // Set system principal 
+                AuthenticationContext.Current = new AuthenticationContext(AuthenticationContext.SystemPrincipal);
+
+                String dataDirectory = Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "Data");
+                this.m_traceSource.TraceEvent(TraceEventType.Verbose, 0, "Scanning Directory {0} for datasets", dataDirectory);
+
+                XmlSerializer xsz = new XmlSerializer(typeof(DatasetInstall));
+                var datasetFiles = Directory.GetFiles(dataDirectory, "*.dataset");
+                Array.Sort(datasetFiles);
+                int i = 0;
+                // Perform migrations
+                foreach (var f in datasetFiles)
                 {
-                    // Set system principal 
-                    AuthenticationContext.Current = new AuthenticationContext(AuthenticationContext.SystemPrincipal);
 
-                    String dataDirectory = Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "Data");
-                    this.m_traceSource.TraceEvent(TraceEventType.Verbose, 0, "Scanning Directory {0} for datasets", dataDirectory);
-
-                    XmlSerializer xsz = new XmlSerializer(typeof(DatasetInstall));
-                    var datasetFiles = Directory.GetFiles(dataDirectory, "*.dataset");
-                    Array.Sort(datasetFiles);
-                    // Perform migrations
-                    foreach (var f in datasetFiles)
+                    try
                     {
 
-                        try
+                        var logFile = Path.ChangeExtension(f, "completed");
+                        if (File.Exists(logFile))
+                            continue; // skip
+
+                        using (var fs = File.OpenRead(f))
                         {
-
-                            var logFile = Path.ChangeExtension(f, "completed");
-                            if (File.Exists(logFile))
-                                continue; // skip
-
-                            using (var fs = File.OpenRead(f))
-                            {
-                                var ds = xsz.Deserialize(fs) as DatasetInstall;
-                                this.m_traceSource.TraceEvent(TraceEventType.Information, 0, "Installing {0}...", Path.GetFileName(f));
-                                this.InstallDataset(ds);
-                            }
-
-
-                            File.Move(f, logFile);
+                            var ds = xsz.Deserialize(fs) as DatasetInstall;
+                            fileProgress?.Invoke(this, new Services.ProgressChangedEventArgs(++i / (float)datasetFiles.Length, ds.Id));
+                            this.m_traceSource.TraceEvent(TraceEventType.Information, 0, "Installing {0}...", Path.GetFileName(f));
+                            this.InstallDataset(ds);
                         }
-                        catch (Exception ex)
-                        {
-                            this.m_traceSource.TraceEvent(TraceEventType.Error, ex.HResult, "Error applying {0}: {1}", f, ex);
-                            throw;
-                        }
+
+
+                        File.Move(f, logFile);
+                    }
+                    catch (Exception ex)
+                    {
+                        this.m_traceSource.TraceEvent(TraceEventType.Error, ex.HResult, "Error applying {0}: {1}", f, ex);
+                        throw;
                     }
                 }
-                finally
-                {
-                    this.m_traceSource.TraceEvent(TraceEventType.Verbose, 0, "Un-binding event handler");
-                    ApplicationContext.Current.Started -= this.m_persistenceHandler;
-                }
-            };
+            }
+            finally
+            {
+                this.m_traceSource.TraceEvent(TraceEventType.Verbose, 0, "Un-binding event handler");
+                ApplicationContext.Current.Started -= this.m_persistenceHandler;
+            }
         }
 
         /// <summary>

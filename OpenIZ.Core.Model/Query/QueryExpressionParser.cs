@@ -70,7 +70,15 @@ namespace OpenIZ.Core.Model.Query
 
         }
 
-        public static Expression<Func<TModelType, bool>> BuildLinqExpression<TModelType>(NameValueCollection httpQueryParameters, Dictionary<String, Delegate> variables, bool safeNullable)
+		/// <summary>
+		/// Builds the linq expression.
+		/// </summary>
+		/// <typeparam name="TModelType">The type of the t model type.</typeparam>
+		/// <param name="httpQueryParameters">The HTTP query parameters.</param>
+		/// <param name="variables">The variables.</param>
+		/// <param name="safeNullable">if set to <c>true</c> [safe nullable].</param>
+		/// <returns>Expression&lt;Func&lt;TModelType, System.Boolean&gt;&gt;.</returns>
+		public static Expression<Func<TModelType, bool>> BuildLinqExpression<TModelType>(NameValueCollection httpQueryParameters, Dictionary<String, Delegate> variables, bool safeNullable)
         {
             var expression = BuildLinqExpression<TModelType>(httpQueryParameters, "o", variables, safeNullable);
 
@@ -362,11 +370,22 @@ namespace OpenIZ.Core.Model.Query
                                     pValue = pValue.Substring(1);
                                 }
                                 break;
+                            case '^':
+                                et = ExpressionType.Equal;
+                                if (thisAccessExpression.Type == typeof(String))
+                                {
+                                    thisAccessExpression = Expression.Call(thisAccessExpression, typeof(String).GetRuntimeMethod("StartsWith", new Type[] { typeof(String) }), Expression.Constant(pValue.Substring(1)));
+                                    pValue = "true";
+                                }
+                                else
+                                    throw new InvalidOperationException("^ can only be applied to string properties");
+
+                                break;
                             case '~':
                                 et = ExpressionType.Equal;
                                 if (thisAccessExpression.Type == typeof(String))
                                 {
-                                    thisAccessExpression = Expression.Call(thisAccessExpression, typeof(String).GetRuntimeMethod("Contains", new Type[] { typeof(String) }), Expression.Constant(pValue.Substring(1).Replace("*", "/")));
+                                    thisAccessExpression = Expression.Call(thisAccessExpression, typeof(String).GetRuntimeMethod("Contains", new Type[] { typeof(String) }), Expression.Constant(pValue.Substring(1)));
                                     pValue = "true";
                                 }
                                 else if (thisAccessExpression.Type == typeof(DateTime) ||

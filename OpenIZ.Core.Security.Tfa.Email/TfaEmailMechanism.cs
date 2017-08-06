@@ -1,23 +1,22 @@
 ﻿/*
  * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
  *
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you
- * may not use this file except in compliance with the License. You may
- * obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
  * the License.
- *
+ * 
  * User: justi
- * Date: 2016-11-3
+ * Date: 2016-11-30
  */
-
 using MARC.HI.EHRS.SVC.Core;
 using MARC.HI.EHRS.SVC.Core.Services;
 using OpenIZ.Core.Model.Security;
@@ -99,6 +98,8 @@ namespace OpenIZ.Core.Security.Tfa.Email
 				var securityService = ApplicationContext.Current.GetService<ISecurityRepositoryService>();
 				var userEntity = securityService?.FindUserEntity(o => o.SecurityUserKey == user.Key).FirstOrDefault();
 
+                this.m_tracer.TraceEvent(TraceEventType.Information, 0, "Password reset has been requested for {0}", userEntity.Key);
+
 				// We want to send the data
 				var templateConfiguration = this.m_configuration.Templates.FirstOrDefault(o => o.Language == (userEntity?.LanguageCommunication?.FirstOrDefault(l => l.IsPreferred)?.LanguageCode ?? CultureInfo.CurrentCulture.TwoLetterISOLanguageName));
 				EmailTemplate template = null;
@@ -107,7 +108,7 @@ namespace OpenIZ.Core.Security.Tfa.Email
 				if (template == null)
 					template = new EmailTemplate()
 					{
-						From = this.m_configuration.Smtp.Username,
+						From = this.m_configuration.Smtp.From,
 						Body = Strings.default_body,
 						Subject = Strings.default_subject
 					};
@@ -126,11 +127,13 @@ namespace OpenIZ.Core.Security.Tfa.Email
 						smtpClient.Credentials = new NetworkCredential(this.m_configuration.Smtp.Username, this.m_configuration.Smtp.Password);
 					smtpClient.SendCompleted += (o, e) =>
 					{
+                        this.m_tracer.TraceInformation("Successfully sent message to {0}", resetMessage.To);
 						if (e.Error != null)
 							this.m_tracer.TraceEvent(TraceEventType.Error, 0, e.Error.ToString());
 						(o as IDisposable).Dispose();
 					};
-					smtpClient.SendAsync(resetMessage, null);
+                    this.m_tracer.TraceInformation("Sending password reset email message to {0}", resetMessage.To);
+                    smtpClient.Send(resetMessage);
 				}
 				catch (Exception e)
 				{

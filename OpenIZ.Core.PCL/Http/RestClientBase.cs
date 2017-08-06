@@ -21,13 +21,17 @@ using OpenIZ.Core.Diagnostics;
 using OpenIZ.Core.Http.Description;
 using OpenIZ.Core.Model.Query;
 using OpenIZ.Core.Services;
+using SharpCompress.Compressors;
+using SharpCompress.Compressors.BZip2;
+using SharpCompress.Compressors.Deflate;
+using SharpCompress.Compressors.LZMA;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace OpenIZ.Core.Http
@@ -52,6 +56,11 @@ namespace OpenIZ.Core.Http
         /// Fired on response
         /// </summary>
         public event EventHandler<RestResponseEventArgs> Responded;
+
+        /// <summary>
+        /// Fired on response
+        /// </summary>
+        public event EventHandler<RestResponseEventArgs> Responding;
 
         /// <summary>
         /// Progress has changed
@@ -111,12 +120,17 @@ namespace OpenIZ.Core.Http
         protected virtual WebRequest CreateHttpRequest(String resourceName, NameValueCollection query)
         {
             // URL is relative to base address
-
+            if (this.Description.Endpoint.Count == 0)
+                throw new InvalidOperationException("No endpoints found, is the interface configured properly?");
             Uri baseUrl = new Uri(this.Description.Endpoint[0].Address);
             UriBuilder uriBuilder = new UriBuilder(baseUrl);
+
             if (!String.IsNullOrEmpty(resourceName))
                 uriBuilder.Path += "/" + resourceName;
 
+            // HACK:
+            uriBuilder.Path = uriBuilder.Path.Replace("//", "/");
+            
             // Add query string
             if (query != null)
                 uriBuilder.Query = CreateQueryString(query);
@@ -142,6 +156,11 @@ namespace OpenIZ.Core.Http
                     retVal.Headers[kv.Key] = kv.Value;
                 }
             }
+
+            // Compress?
+            if (this.Description.Binding.Optimize)
+                retVal.Headers[HttpRequestHeader.AcceptEncoding] =  "lzma,bzip2,gzip,deflate";
+
 
             // Return type?
             if (!String.IsNullOrEmpty(this.Accept))
@@ -216,6 +235,8 @@ namespace OpenIZ.Core.Http
                     else
                         try
                         {
+                            this.Responding?.Invoke(this, new RestResponseEventArgs("GET", url, null, null, null, 200, o.Result.ContentLength));
+
                             byte[] buffer = new byte[2048];
                             int br = 1;
                             using (var ms = new MemoryStream())
@@ -235,7 +256,7 @@ namespace OpenIZ.Core.Http
                                 switch (o.Result.Headers["Content-Encoding"])
                                 {
                                     case "deflate":
-                                        using (var dfs = new DeflateStream(ms, CompressionMode.Decompress))
+                                        using (var dfs = new DeflateStream(ms, CompressionMode.Decompress, leaveOpen: true))
                                         using (var oms = new MemoryStream())
                                         {
                                             dfs.CopyTo(oms);
@@ -243,13 +264,29 @@ namespace OpenIZ.Core.Http
                                         }
                                         break;
                                     case "gzip":
-                                        using (var gzs = new GZipStream(ms, CompressionMode.Decompress))
+                                        using (var gzs = new GZipStream(ms, CompressionMode.Decompress, leaveOpen: true))
                                         using (var oms = new MemoryStream())
                                         {
                                             gzs.CopyTo(oms);
                                             retVal = oms.ToArray();
                                         }
                                             break;
+                                    case "bzip2":
+                                        using (var lzmas = new BZip2Stream(ms, CompressionMode.Decompress, leaveOpen: true))
+                                        using (var oms = new MemoryStream())
+                                        {
+                                            lzmas.CopyTo(oms);
+                                            retVal = oms.ToArray();
+                                        }
+                                        break;
+                                    case "lzma":
+                                        using (var lzmas = new LZipStream(ms, CompressionMode.Decompress, leaveOpen: true))
+                                        using (var oms = new MemoryStream())
+                                        {
+                                            lzmas.CopyTo(oms);
+                                            retVal = oms.ToArray();
+                                        }
+                                        break;
                                     default:
                                         retVal = ms.ToArray();
                                         break;
@@ -266,14 +303,27 @@ namespace OpenIZ.Core.Http
                     throw requestException;
 
 
-                this.Responded?.Invoke(this, new RestResponseEventArgs("GET", url, null, null, null, 200));
+                this.Responded?.Invoke(this, new RestResponseEventArgs("GET", url, null, null, null, 200, 0));
 
                 return retVal;
+            }
+            catch(WebException e)
+            {
+                switch (this.ValidateResponse(e.Response)) {
+                    case ServiceClientErrorType.Valid:
+                        return this.Get(url);
+                    default:
+                        throw new RestClientException<byte[]>(
+                                            null,
+                                            e,
+                                            e.Status,
+                                            e.Response);
+                }
             }
             catch (Exception e)
             {
                 s_tracer.TraceError("Error invoking HTTP: {0}", e.Message);
-                this.Responded?.Invoke(this, new RestResponseEventArgs("GET", url, null, null, null, 500));
+                this.Responded?.Invoke(this, new RestResponseEventArgs("GET", url, null, null, null, 500, 0));
                 throw;
             }
         }
@@ -326,13 +376,13 @@ namespace OpenIZ.Core.Http
                 // Invoke
                 WebHeaderCollection responseHeaders = null;
                 var retVal = this.InvokeInternal<TBody, TResult>(requestEventArgs.Method, requestEventArgs.Url, requestEventArgs.ContentType, requestEventArgs.AdditionalHeaders, out responseHeaders, body, requestEventArgs.Query);
-                this.Responded?.Invoke(this, new RestResponseEventArgs(requestEventArgs.Method, requestEventArgs.Url, requestEventArgs.Query, requestEventArgs.ContentType, retVal, 200));
+                this.Responded?.Invoke(this, new RestResponseEventArgs(requestEventArgs.Method, requestEventArgs.Url, requestEventArgs.Query, requestEventArgs.ContentType, retVal, 200, 0));
                 return retVal;
             }
             catch (Exception e)
             {
                 s_tracer.TraceError("Error invoking HTTP: {0}", e.Message);
-                this.Responded?.Invoke(this, new RestResponseEventArgs(method, url, parameters, contentType, null, 500));
+                this.Responded?.Invoke(this, new RestResponseEventArgs(method, url, parameters, contentType, null, 500, 0));
                 throw;
             }
         }
@@ -451,20 +501,34 @@ namespace OpenIZ.Core.Http
 
                                 if (!String.IsNullOrEmpty(this.Description.Binding.Security.AuthRealm) &&
                                     !this.Description.Binding.Security.AuthRealm.Equals(realm))
-                                    return ServiceClientErrorType.RealmMismatch;
+                                {
+                                    s_tracer.TraceWarning("Warning: REALM mismatch, authentication may fail. Server reports {0} but client configured for {1}", realm, this.Description.Binding.Security.AuthRealm);
+                                }
 
                                 // Credential provider
                                 if (this.Description.Binding.Security.CredentialProvider != null)
                                 {
                                     this.Credentials = this.Description.Binding.Security.CredentialProvider.Authenticate(this);
-                                    return ServiceClientErrorType.Valid;
+                                    if (this.Credentials != null)
+                                        return ServiceClientErrorType.Valid;
+                                    else
+                                        return ServiceClientErrorType.SecurityError;
                                 }
                                 else
                                     return ServiceClientErrorType.SecurityError;
                             }
                         }
-                    default:
+                    case HttpStatusCode.ServiceUnavailable:
+                        return ServiceClientErrorType.NotReady;
+                    case HttpStatusCode.OK:
+                    case HttpStatusCode.NoContent:
+                    case HttpStatusCode.NotModified:
+                    case HttpStatusCode.Created:
+                    case HttpStatusCode.Redirect:
+                    case HttpStatusCode.Moved:
                         return ServiceClientErrorType.Valid;
+                    default:
+                        return ServiceClientErrorType.GenericError;
                 }
             }
             else
@@ -513,7 +577,7 @@ namespace OpenIZ.Core.Http
             catch (Exception e)
             {
                 s_tracer.TraceError("Error invoking HTTP: {0}", e.Message);
-                this.Responded?.Invoke(this, new RestResponseEventArgs("PATCH", url, null, contentType, null, 500));
+                this.Responded?.Invoke(this, new RestResponseEventArgs("PATCH", url, null, contentType, null, 500, 0));
                 throw;
             }
 
@@ -550,28 +614,39 @@ namespace OpenIZ.Core.Http
                 Exception fault = null;
                 var httpTask = httpWebReq.GetResponseAsync().ContinueWith(o =>
                 {
-                    if(o.IsFaulted)
+                    if (o.IsFaulted)
                         fault = o.Exception.InnerExceptions.First();
                     else
+                    {
+                        this.Responding?.Invoke(this, new RestResponseEventArgs("HEAD", resourceName, parameters, null, null, 200, o.Result.ContentLength));
                         foreach (var itm in o.Result.Headers.AllKeys)
                             retVal.Add(itm, o.Result.Headers[itm]);
+                    }
                 }, TaskContinuationOptions.LongRunning);
                 httpTask.Wait();
                 if (fault != null)
                     throw fault;
-                this.Responded?.Invoke(this, new RestResponseEventArgs("HEAD", resourceName, parameters, null, null, 200));
+                this.Responded?.Invoke(this, new RestResponseEventArgs("HEAD", resourceName, parameters, null, null, 200, 0));
 
                 return retVal;
             }
             catch (Exception e)
             {
                 s_tracer.TraceError("Error invoking HTTP: {0}", e.Message);
-                this.Responded?.Invoke(this, new RestResponseEventArgs("HEAD", resourceName, parameters, null, null, 500));
+                this.Responded?.Invoke(this, new RestResponseEventArgs("HEAD", resourceName, parameters, null, null, 500, 0));
                 throw;
             }
         }
-    }
 
+        /// <summary>
+        /// Fire responding event
+        /// </summary>
+        protected void FireResponding(RestResponseEventArgs args)
+        {
+            this.Responding?.Invoke(this, args);
+        }
+
+    }
     /// <summary>
     /// Service client error type
     /// </summary>
@@ -581,6 +656,7 @@ namespace OpenIZ.Core.Http
         GenericError,
         AuthenticationSchemeMismatch,
         SecurityError,
-        RealmMismatch
+        RealmMismatch,
+        NotReady
     }
 }

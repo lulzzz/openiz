@@ -1,23 +1,22 @@
 ﻿/*
  * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
  *
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you
- * may not use this file except in compliance with the License. You may
- * obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
  * the License.
- *
+ * 
  * User: justi
  * Date: 2016-8-2
  */
-
 using OpenIZ.Core.Model;
 using OpenIZ.Core.Model.DataTypes;
 using System;
@@ -89,15 +88,20 @@ namespace OpenIZ.Core.Services
 		/// <returns>Returns a list of concepts who match the specified query.</returns>
 		IEnumerable<Concept> FindConcepts(Expression<Func<Concept, bool>> query);
 
-		/// <summary>
-		/// Searches for a concept using a given query.
-		/// </summary>
-		/// <param name="query">The query to use for searching for the concept.</param>
-		/// <param name="count">The count of the concepts to return.</param>
-		/// <param name="offset">The offset for the search results.</param>
-		/// <param name="totalCount">The total count of the search results.</param>
-		/// <returns>Returns a list of concepts who match the specified query.</returns>
-		IEnumerable<Concept> FindConcepts(Expression<Func<Concept, bool>> query, int offset, int? count, out int totalCount);
+        /// <summary>
+        /// Find code systems
+        /// </summary>
+        IEnumerable<CodeSystem> FindCodeSystems(Expression<Func<CodeSystem, bool>> query);
+
+        /// <summary>
+        /// Searches for a concept using a given query.
+        /// </summary>
+        /// <param name="query">The query to use for searching for the concept.</param>
+        /// <param name="count">The count of the concepts to return.</param>
+        /// <param name="offset">The offset for the search results.</param>
+        /// <param name="totalCount">The total count of the search results.</param>
+        /// <returns>Returns a list of concepts who match the specified query.</returns>
+        IEnumerable<Concept> FindConcepts(Expression<Func<Concept, bool>> query, int offset, int? count, out int totalCount);
 
 		/// <summary>
 		/// Searches for a concept by name and language.
@@ -115,12 +119,21 @@ namespace OpenIZ.Core.Services
 		/// <returns>Returns a list of concepts.</returns>
 		IEnumerable<Concept> FindConceptsByReferenceTerm(string code, Uri codeSystem);
 
-		/// <summary>
-		/// Searches for a concept set using a given query.
-		/// </summary>
-		/// <param name="query">The query to use for searching for the concept set.</param>
-		/// <returns>Returns a list of concept sets who match the specified query.</returns>
-		IEnumerable<ConceptSet> FindConceptSets(Expression<Func<ConceptSet, bool>> query);
+        /// <summary>
+        /// Finds a concept by reference term.
+        /// </summary>
+        /// <param name="code">The code of the reference term.</param>
+        /// <param name="codeSystemDomain">The code system OID of the reference term.</param>
+        /// <returns>Returns a list of concepts.</returns>
+        IEnumerable<Concept> FindConceptsByReferenceTerm(string code, String codeSystemDomain);
+
+
+        /// <summary>
+        /// Searches for a concept set using a given query.
+        /// </summary>
+        /// <param name="query">The query to use for searching for the concept set.</param>
+        /// <returns>Returns a list of concept sets who match the specified query.</returns>
+        IEnumerable<ConceptSet> FindConceptSets(Expression<Func<ConceptSet, bool>> query);
 
 		/// <summary>
 		/// Searches for a concept sets using a given query.

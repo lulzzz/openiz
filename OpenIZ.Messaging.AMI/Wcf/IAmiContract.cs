@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  *
- * User: justi
+ * User: khannan
  * Date: 2016-8-2
  */
 
@@ -97,19 +97,12 @@ namespace OpenIZ.Messaging.AMI.Wcf
 	[ServiceKnownType(typeof(AmiCollection<X509Certificate2Info>))]
 	public interface IAmiContract
 	{
-
-        /// <summary>
-        /// Ping the service to determine up/down
-        /// </summary>
-        [WebInvoke(UriTemplate = "/", Method = "PING")]
-        void Ping();
-
 		/// <summary>
 		/// Accepts a certificate signing request.
 		/// </summary>
 		/// <param name="id">The id of the certificate signing request to be accepted.</param>
 		/// <returns>Returns the acceptance result.</returns>
-		[WebInvoke(UriTemplate = "/csr/accept/{id}", BodyStyle = WebMessageBodyStyle.Bare, Method = "PUT")]
+		[WebInvoke(UriTemplate = "/csr/{id}", BodyStyle = WebMessageBodyStyle.Bare, Method = "PUT")]
 		SubmissionResult AcceptCsr(string id);
 
 		/// <summary>
@@ -178,12 +171,22 @@ namespace OpenIZ.Messaging.AMI.Wcf
 		[WebInvoke(UriTemplate = "/sherlock", BodyStyle = WebMessageBodyStyle.Bare, Method = "POST")]
 		DiagnosticReport CreateDiagnosticReport(DiagnosticReport report);
 
-		/// <summary>
-		/// Creates the type of the extension.
-		/// </summary>
-		/// <param name="extensionType">Type of the extension.</param>
-		/// <returns>Returns the created extension type.</returns>
-		[WebInvoke(UriTemplate = "/extensionType", BodyStyle = WebMessageBodyStyle.Bare, Method = "POST")]
+
+        /// <summary>
+        /// Gets a server diagnostic report.
+        /// </summary>
+        /// <param name="report">The diagnostic report to be created.</param>
+        /// <returns>Returns the created diagnostic report.</returns>
+        [WebGet(UriTemplate = "/sherlock", BodyStyle = WebMessageBodyStyle.Bare)]
+        DiagnosticReport GetServerDiagnosticReport();
+
+
+        /// <summary>
+        /// Creates the type of the extension.
+        /// </summary>
+        /// <param name="extensionType">Type of the extension.</param>
+        /// <returns>Returns the created extension type.</returns>
+        [WebInvoke(UriTemplate = "/extensionType", BodyStyle = WebMessageBodyStyle.Bare, Method = "POST")]
 		ExtensionType CreateExtensionType(ExtensionType extensionType);
 
 		/// <summary>
@@ -252,20 +255,20 @@ namespace OpenIZ.Messaging.AMI.Wcf
 		CodeSystem DeleteCodeSystem(string codeSystemId);
 
 		/// <summary>
-		/// Deletes the type of the extension.
-		/// </summary>
-		/// <param name="extensionTypeId">The extension type identifier.</param>
-		/// <returns>Returns the deleted extension type.</returns>
-		[WebInvoke(UriTemplate = "/extensionType/{extensionTypeId}", BodyStyle = WebMessageBodyStyle.Bare, Method = "DELETE")]
-		ExtensionType DeleteExtensionType(string extensionTypeId);
-
-		/// <summary>
 		/// Deletes a device.
 		/// </summary>
 		/// <param name="deviceId">The id of the device to be deleted.</param>
 		/// <returns>Returns the deleted device.</returns>
 		[WebInvoke(UriTemplate = "/device/{deviceId}", BodyStyle = WebMessageBodyStyle.Bare, Method = "DELETE")]
 		SecurityDeviceInfo DeleteDevice(string deviceId);
+
+		/// <summary>
+		/// Deletes the type of the extension.
+		/// </summary>
+		/// <param name="extensionTypeId">The extension type identifier.</param>
+		/// <returns>Returns the deleted extension type.</returns>
+		[WebInvoke(UriTemplate = "/extensionType/{extensionTypeId}", BodyStyle = WebMessageBodyStyle.Bare, Method = "DELETE")]
+		ExtensionType DeleteExtensionType(string extensionTypeId);
 
 		/// <summary>
 		/// Deletes a security policy.
@@ -515,6 +518,12 @@ namespace OpenIZ.Messaging.AMI.Wcf
 		IdentifiedData Options();
 
 		/// <summary>
+		/// Ping the service to determine up/down
+		/// </summary>
+		[WebInvoke(UriTemplate = "/", Method = "PING")]
+		void Ping();
+
+		/// <summary>
 		/// Rejects a specified certificate signing request.
 		/// </summary>
 		/// <param name="certId">The id of the certificate signing request to be rejected.</param>
@@ -627,14 +636,14 @@ namespace OpenIZ.Messaging.AMI.Wcf
 		[WebInvoke(UriTemplate = "/user/{userId}", BodyStyle = WebMessageBodyStyle.Bare, Method = "PUT")]
 		SecurityUserInfo UpdateUser(string userId, SecurityUserInfo userInfo);
 
-        #region Auditing
+		#region Auditing
 
-        /// <summary>
-        /// Create audit in the IMS' audit repository
-        /// </summary>
-        [WebInvoke(UriTemplate = "/audit", BodyStyle = WebMessageBodyStyle.Bare, Method = "POST")]
-        void CreateAudit(AuditInfo audit);
-        
-        #endregion
-    }
+		/// <summary>
+		/// Create audit in the IMS' audit repository
+		/// </summary>
+		[WebInvoke(UriTemplate = "/audit", BodyStyle = WebMessageBodyStyle.Bare, Method = "POST")]
+		void CreateAudit(AuditInfo audit);
+
+		#endregion Auditing
+	}
 }

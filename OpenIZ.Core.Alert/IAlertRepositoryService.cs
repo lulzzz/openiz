@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-9-2
+ * Date: 2016-9-3
  */
 using OpenIZ.Core.Alert.Alerting;
 using System;
@@ -42,7 +42,7 @@ namespace OpenIZ.Core.Services
 		/// <summary>
 		/// Broadcasts an alert.
 		/// </summary>
-		/// <param name="msg">The alert message to be broadcast.</param>
+		/// <param name="message">The message.</param>
 		void BroadcastAlert(AlertMessage message);
 
 		/// <summary>

@@ -183,7 +183,7 @@ namespace OpenIZ.Core.Model.DataTypes
         /// <summary>
         /// Concept sets as identifiers for XML purposes only
         /// </summary>
-        [DataIgnore, XmlElement("conceptSet"), JsonProperty("conceptSet")]
+        [XmlElement("conceptSet"), JsonProperty("conceptSet")]
         public List<Guid> ConceptSetsXml { get; set; }
 
         /// <summary>
@@ -228,6 +228,15 @@ namespace OpenIZ.Core.Model.DataTypes
                 this.ConceptSets?.SemanticEquals(other.ConceptSets) == true &&
                 this.IsSystemConcept == other.IsSystemConcept &&
                 this.Relationship?.SemanticEquals(other.Relationship) == true;
+        }
+
+
+        /// <summary>
+        /// Represent as a display string
+        /// </summary>
+        public override string ToDisplay()
+        {
+            return this.LoadCollection<ConceptName>("ConceptNames")?.FirstOrDefault().Name;
         }
     }
 }

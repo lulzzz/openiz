@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-8-2
+ * Date: 2017-1-21
  */
 using System;
 using OpenIZ.Core.Model.Security;
@@ -120,7 +120,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
         /// </summary>
         public override IEnumerable<TModel> QueryInternal (DataContext context, Expression<Func<TModel, bool>> query, Guid queryId, int offset, int? count, out int totalResults, IPrincipal principal, bool countResults = false)
 		{
-            return this.QueryInternal(context, query, queryId, offset, count, out totalResults, countResults).AsParallel().Select(o=>o is Guid ? this.Get(context, (Guid)o, principal) : this.CacheConvert(o, context, principal));
+            return this.QueryInternal(context, query, queryId, offset, count, out totalResults, countResults).Select(o=>o is Guid ? this.Get(context, (Guid)o, principal) : this.CacheConvert(o, context, principal));
 		}
 
         /// <summary>

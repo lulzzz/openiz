@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-11-3
+ * Date: 2016-11-30
  */
 using OpenIZ.Core.Wcf.Serialization;
 using System;
@@ -51,6 +51,10 @@ namespace OpenIZ.Core.Wcf.Compression
                     return new GzipCompressionScheme();
                 case "deflate":
                     return new DeflateCompressionScheme();
+                case "lzma":
+                    return new LzmaCompressionScheme();
+                case "bzip2":
+                    return new BZip2CompressionScheme();
                 default:
                     return null;
             }

@@ -1,23 +1,22 @@
 ﻿/*
  * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
  *
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you
- * may not use this file except in compliance with the License. You may
- * obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
  * the License.
- *
+ * 
  * User: justi
- * Date: 2016-8-2
+ * Date: 2016-11-30
  */
-
 using OpenIZ.Core.Model.Attributes;
 using OpenIZ.Core.Model.Entities;
 using OpenIZ.Core.Model.EntityLoader;
@@ -30,6 +29,8 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Xml.Serialization;
+using OpenIZ.Core.Model.Constants;
+using OpenIZ.Core.Model.Interfaces;
 
 namespace OpenIZ.Core.Model
 {
@@ -42,6 +43,14 @@ namespace OpenIZ.Core.Model
 		private static Dictionary<String, PropertyInfo> s_propertyCache = new Dictionary<string, PropertyInfo>();
 
 		private static Dictionary<Type, PropertyInfo[]> s_typePropertyCache = new Dictionary<Type, PropertyInfo[]>();
+
+        /// <summary>
+        /// Get postal code
+        /// </summary>
+        public static String Value(this EntityAddress me, Guid addressType)
+        {
+            return me.LoadCollection<EntityAddressComponent>("Component").FirstOrDefault(o => o.ComponentTypeKey == addressType)?.Value;
+        }
 
         /// <summary>
         /// Delay load property
@@ -257,6 +266,26 @@ namespace OpenIZ.Core.Model
 		}
 
 		/// <summary>
+		/// Gets the full name of the user entity.
+		/// </summary>
+		/// <param name="entity">The user entity.</param>
+		/// <param name="nameUseKey">The name use key.</param>
+		/// <returns>Returns the full name of the user entity.</returns>
+		/// <exception cref="System.ArgumentNullException">If the entity is null.</exception>
+		public static string GetFullName(this UserEntity entity, Guid nameUseKey)
+		{
+			if (entity == null)
+			{
+				throw new ArgumentNullException(nameof(entity), "Value cannot be null");
+			}
+
+			var given = entity.Names.Where(n => n.NameUseKey == nameUseKey).SelectMany(n => n.Component).Where(c => c.ComponentTypeKey == NameComponentKeys.Given).Select(c => c.Value).ToList();
+			var family = entity.Names.Where(n => n.NameUseKey == nameUseKey).SelectMany(n => n.Component).Where(c => c.ComponentTypeKey == NameComponentKeys.Family).Select(c => c.Value).ToList();
+
+			return string.Join(" ", given) + " " + string.Join(" ", family);
+		}
+
+		/// <summary>
 		/// Create a version filter
 		/// </summary>
 		/// <param name="me">Me.</param>
@@ -328,9 +357,14 @@ namespace OpenIZ.Core.Model
 		/// </summary>
 		/// <typeparam name="T"></typeparam>
 		/// <param name="source">The source.</param>
-		/// <returns>Returns a list of the versioned entity data which contains only the latest version of the entity.</returns>
-		public static IEnumerable<T> LatestVersionOnly<T>(this IEnumerable<T> source) where T : VersionedEntityData<Entity>
+		/// <returns>Returns the latest version only of the versioned entity data.</returns>
+		public static IEnumerable<T> LatestVersionOnly<T>(this IEnumerable<T> source) where T : IVersionedEntity
 		{
+			if (source == null)
+			{
+				throw new ArgumentNullException(nameof(source), "Value cannot be null");
+			}
+
 			var latestVersions = new List<T>();
 
 			var keys = source.Select(e => e.Key.Value).Distinct();

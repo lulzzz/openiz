@@ -15,13 +15,10 @@
  * the License.
  *
  * User: justi
- * Date: 2016-9-7
+ * Date: 2016-9-8
  */
 
-using MARC.Everest.Connectors;
 using MARC.HI.EHRS.SVC.Core;
-using MARC.HI.EHRS.SVC.Core.Data;
-using MARC.HI.EHRS.SVC.Core.Services;
 using MARC.HI.EHRS.SVC.Messaging.FHIR.DataTypes;
 using MARC.HI.EHRS.SVC.Messaging.FHIR.Resources;
 using OpenIZ.Core.Model;
@@ -33,7 +30,6 @@ using OpenIZ.Messaging.FHIR.Util;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.ServiceModel.Web;
 using DatePrecision = OpenIZ.Core.Model.DataTypes.DatePrecision;
 
@@ -77,7 +73,7 @@ namespace OpenIZ.Messaging.FHIR.Handlers
 			retVal.Telecom = model.Telecoms.Select(o => DataTypeConverter.ToFhirTelecom(o)).ToList();
 
 			// TODO: Relationships
-			foreach (var rel in model.Relationships.Where(o => !o.InversionIndicator))
+			foreach (var rel in model.LoadCollection<EntityRelationship>("Relationships").Where(o => !o.InversionIndicator))
 			{
 				// Family member
 				if (rel.LoadProperty<Concept>(nameof(EntityRelationship.RelationshipType)).ConceptSetsXml.Contains(ConceptSetKeys.FamilyMember))
@@ -90,7 +86,7 @@ namespace OpenIZ.Messaging.FHIR.Handlers
 					relative.Identifier = rel.TargetEntity.LoadCollection<EntityIdentifier>(nameof(Entity.Identifiers)).Select(o => DataTypeConverter.ToFhirIdentifier(o)).ToList();
 					relative.Name = DataTypeConverter.ToFhirHumanName(rel.TargetEntity.LoadCollection<EntityName>(nameof(Entity.Names)).FirstOrDefault());
 					if (rel.TargetEntity is Core.Model.Roles.Patient)
-						relative.Patient = DataTypeConverter.CreateReference<Patient>(rel.TargetEntity);
+						relative.Patient = DataTypeConverter.CreateReference<Patient>(rel.TargetEntity, webOperationContext);
 					relative.Telecom = rel.TargetEntity.LoadCollection<EntityTelecomAddress>(nameof(Entity.Telecoms)).Select(o => DataTypeConverter.ToFhirTelecom(o)).ToList();
 					retVal.Contained.Add(new ContainedResource()
 					{
@@ -98,8 +94,18 @@ namespace OpenIZ.Messaging.FHIR.Handlers
 					});
 				}
 				else if (rel.RelationshipTypeKey == EntityRelationshipTypeKeys.HealthcareProvider)
-					retVal.Provider = DataTypeConverter.CreateReference<Practictioner>(rel.LoadProperty<Entity>(nameof(EntityRelationship.TargetEntity)));
+					retVal.Provider = DataTypeConverter.CreateReference<Practitioner>(rel.LoadProperty<Entity>(nameof(EntityRelationship.TargetEntity)), webOperationContext);
 			}
+
+			var photo = model.LoadCollection<EntityExtension>("Extensions").FirstOrDefault(o => o.ExtensionTypeKey == ExtensionTypeKeys.JpegPhotoExtension);
+			if (photo != null)
+				retVal.Photo = new List<Attachment>() {
+					new Attachment()
+					{
+						ContentType = "image/jpg",
+						Data = photo.ExtensionValueXml
+					}
+				};
 
 			// TODO: Links
 			return retVal;
@@ -161,8 +167,5 @@ namespace OpenIZ.Messaging.FHIR.Handlers
 
 			return patient;
 		}
-
-
-
 	}
 }

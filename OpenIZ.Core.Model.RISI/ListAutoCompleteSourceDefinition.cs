@@ -15,7 +15,7 @@
  * the License.
  *
  * User: khannan
- * Date: 2017-1-5
+ * Date: 2017-1-6
  */
 
 using Newtonsoft.Json;
@@ -29,8 +29,8 @@ namespace OpenIZ.Core.Model.RISI
 	/// Represents an auto complete source which is fed from a static list of members.
 	/// </summary>
 	[XmlType(nameof(ListAutoCompleteSourceDefinition), Namespace = "http://openiz.org/risi")]
-    [JsonObject(nameof(ListAutoCompleteSourceDefinition))]
-    public class ListAutoCompleteSourceDefinition : AutoCompleteSourceDefinition
+	[JsonObject(nameof(ListAutoCompleteSourceDefinition))]
+	public class ListAutoCompleteSourceDefinition : AutoCompleteSourceDefinition
 	{
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ListAutoCompleteSourceDefinition"/> class.

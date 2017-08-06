@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  *
- * User: justi
+ * User: khannan
  * Date: 2016-8-2
  */
 
@@ -33,9 +33,9 @@ namespace OpenIZ.Messaging.AMI.Configuration
 		/// </summary>
 		public CertificationAuthorityConfiguration CaConfiguration { get; set; }
 
-        /// <summary>
-        /// Extra endpoints
-        /// </summary>
-        public List<ServiceEndpointOptions> Endpoints { get; set; }
-    }
+		/// <summary>
+		/// Extra endpoints
+		/// </summary>
+		public List<ServiceEndpointOptions> Endpoints { get; set; }
+	}
 }

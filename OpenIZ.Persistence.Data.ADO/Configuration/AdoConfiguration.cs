@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-6-14
+ * Date: 2017-1-15
  */
 using OpenIZ.OrmLite.Providers;
 using System;
@@ -31,6 +31,14 @@ namespace OpenIZ.Persistence.Data.ADO.Configuration
     /// </summary>
     public class AdoConfiguration
     {
+
+        /// <summary>
+        /// ADO configuration
+        /// </summary>
+        public AdoConfiguration()
+        {
+            this.DataCorrectionKeys = new List<string>();
+        }
 
         /// <summary>
         /// Read/write connection string
@@ -61,5 +69,10 @@ namespace OpenIZ.Persistence.Data.ADO.Configuration
         /// Provider type
         /// </summary>
         public IDbProvider Provider { get; set; }
+
+        /// <summary>
+        /// Gets a list of data corrections to apply
+        /// </summary>
+        public List<String> DataCorrectionKeys { get; set; }
     }
 }

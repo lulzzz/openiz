@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  *
- * User: justi
+ * User: khannan
  * Date: 2016-8-2
  */
 
@@ -46,27 +46,27 @@ namespace OpenIZ.Messaging.AMI.Configuration
 				caConfiguration.ServerName = caConfigurationElement?.Attributes["serverName"]?.Value;
 			}
 
-            var endpoints = section.SelectNodes("./*[local-name() = 'endpoint']/*[local-name() = 'add']");
-            List<ServiceEndpointOptions> epOptions = new List<ServiceEndpointOptions>();
+			var endpoints = section.SelectNodes("./*[local-name() = 'endpoint']/*[local-name() = 'add']");
+			List<ServiceEndpointOptions> epOptions = new List<ServiceEndpointOptions>();
 
-            foreach(XmlElement xel in endpoints)
-            {
-                ServiceEndpointCapabilities caps = ServiceEndpointCapabilities.None;
-                foreach (var si in xel.Attributes["capabilities"]?.Value?.Split(' ') ?? new String[0])
-                    caps |= (ServiceEndpointCapabilities)Enum.Parse(typeof(ServiceEndpointCapabilities), si);
-                epOptions.Add(new ServiceEndpointOptions()
-                {
-                    BaseUrl = xel.InnerText.Split(' '),
-                    ServiceType = (ServiceEndpointType)Enum.Parse(typeof(ServiceEndpointType), xel.Attributes["type"]?.Value),
-                    Capabilities = caps,
-                });
-            }
+			foreach (XmlElement xel in endpoints)
+			{
+				ServiceEndpointCapabilities caps = ServiceEndpointCapabilities.None;
+				foreach (var si in xel.Attributes["capabilities"]?.Value?.Split(' ') ?? new String[0])
+					caps |= (ServiceEndpointCapabilities)Enum.Parse(typeof(ServiceEndpointCapabilities), si);
+				epOptions.Add(new ServiceEndpointOptions()
+				{
+					BaseUrl = xel.InnerText.Split(' '),
+					ServiceType = (ServiceEndpointType)Enum.Parse(typeof(ServiceEndpointType), xel.Attributes["type"]?.Value),
+					Capabilities = caps,
+				});
+			}
 
 			// Configuration
 			return new AmiConfiguration()
 			{
 				CaConfiguration = caConfiguration,
-                Endpoints = epOptions
+				Endpoints = epOptions
 			};
 		}
 	}

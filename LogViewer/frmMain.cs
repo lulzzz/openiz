@@ -1,6 +1,6 @@
 ﻿/*
  * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
- * 
+ *
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you 
  * may not use this file except in compliance with the License. You may 
@@ -225,9 +225,39 @@ namespace LogViewer
             }
         }
 
+        /// <summary>
+        /// Decode base 64
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void decodeBase64ToolStripMenuItem_Click(object sender, EventArgs e)
         {
             new frmDataInspector(txtText.SelectedText ?? txtText.Text).ShowDialog();
+        }
+
+        /// <summary>
+        /// Open JIRA ticket
+        /// </summary>
+        private void openJiraTicketToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var oj = new frmOpenJira();
+            if(oj.ShowDialog() == DialogResult.OK)
+            {
+
+            }
+        }
+
+        private void openAppInfoxmlToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog ofd = new OpenFileDialog()
+            {
+                Filter = "Appinfo Files|appinfo.xml|All XML Files (*.xml)|*.xml",
+                Title = "Open AppInfo File"
+            };
+            if (ofd.ShowDialog() == DialogResult.OK)
+            {
+                new frmAppInfo(ofd.FileName).ShowDialog();
+            }
         }
     }
 

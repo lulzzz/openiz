@@ -1,4 +1,23 @@
-﻿using OpenIZ.Core.Model.Map;
+﻿/*
+ * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
+ *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
+ * the License.
+ * 
+ * User: justi
+ * Date: 2017-1-21
+ */
+using OpenIZ.Core.Model.Map;
 using OpenIZ.Core.Model.Query;
 using OpenIZ.OrmLite.Attributes;
 using System;
@@ -14,6 +33,7 @@ using System.Text.RegularExpressions;
 using OpenIZ.Core.Model.Attributes;
 using System.Xml.Serialization;
 using OpenIZ.OrmLite.Providers;
+using OpenIZ.Core.Model.Interfaces;
 
 namespace OpenIZ.OrmLite
 {
@@ -279,7 +299,11 @@ namespace OpenIZ.OrmLite
                     }
                     else // this table points at other
                     {
-                        var subQuery = queryParms.Select(o => new KeyValuePair<String, Object>(this.m_extractionRegex.Match(o.Key).Groups[SubPropertyRegexGroup].Value, o.Value));
+                        var subQuery = queryParms.Select(o => new KeyValuePair<String, Object>(this.m_extractionRegex.Match(o.Key).Groups[SubPropertyRegexGroup].Value, o.Value)).ToList();
+
+                        if (!subQuery.Any(o => o.Key == "obsoletionTime") && typeof(IBaseEntityData).IsAssignableFrom(subProp.PropertyType))
+                            subQuery.Add(new KeyValuePair<string, object>("obsoletionTime", "null"));
+
                         TableMapping tableMapping = null;
                         var subPropKey = typeof(TModel).GetXmlProperty(propertyPath);
 
@@ -420,7 +444,13 @@ namespace OpenIZ.OrmLite
                                 retVal.Append(" <> ?", CreateParameterValue(sValue.Substring(1), propertyInfo.PropertyType));
                             break;
                         case '~':
-                            retVal.Append(" ILIKE '%' || ? || '%'", CreateParameterValue(sValue.Substring(1), propertyInfo.PropertyType));
+                            if(sValue.Contains("*") || sValue.Contains("?"))
+                                retVal.Append(" ILIKE ? ", CreateParameterValue(sValue.Substring(1).Replace("*","%"), propertyInfo.PropertyType));
+                            else
+                                retVal.Append(" ILIKE '%' || ? || '%'", CreateParameterValue(sValue.Substring(1), propertyInfo.PropertyType));
+                            break;
+                        case '^':
+                            retVal.Append(" ILIKE ? || '%'", CreateParameterValue(sValue.Substring(1), propertyInfo.PropertyType));
                             break;
                         default:
                             if (sValue.Equals("null"))

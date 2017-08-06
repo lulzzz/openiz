@@ -84,6 +84,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConsoleParameters.cs" />
+    <None Include="Data\000-IndustryTypes.dataset">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <Compile Include="OpenIZ.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -95,6 +98,9 @@
     <Compile Include="ServiceInstaller.cs">
       <SubType>Component</SubType>
     </Compile>
+    <EmbeddedResource Include="License.rtf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\OpenIZ.licenseheader">
@@ -132,8 +138,12 @@
     <None Include="Data\000-AdministrableDrugForm.dataset">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Data\000-CauseOfDeath.dataset">
+    <None Include="Data\000-CoreExtensionTypes.dataset">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Data\000-DiagnosisCodes.dataset">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <SubType>Designer</SubType>
     </None>
     <None Include="Data\000-ControlActClass.dataset">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -143,6 +153,9 @@
     </None>
     <None Include="Data\000-DischargeDisposition.dataset">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Data\000-OrganizationType.dataset">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="Data\000-ProblemObservationTypes.dataset">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -175,32 +188,15 @@
     <None Include="Data\001-XMaterialTypes.dataset">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Data\003-HL7v2TelecommunicationUseCodes.dataset">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="Data\003-HL7v2AddressUseCodes.dataset">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="Data\004-FHIR-AdministrativeGenderCodes.dataset">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="Data\004-FHIR-ContactPointSystemCodes.dataset">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="Data\004-FHIR-ContactPointUseCodes.dataset">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="Data\004-FHIR-AddressUseCodes.dataset">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="Data\004-FHIR-NameUseCodes.dataset">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Include="Data\002-BCP-47-LanguageCodes.dataset">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\OpenIZ.AdminConsole\OpenIZ.AdminConsole.csproj">
+      <Project>{04421ab6-68f0-4315-ab5a-9f2486d8dc64}</Project>
+      <Name>OpenIZ.AdminConsole</Name>
+    </ProjectReference>
     <ProjectReference Include="..\OpenIZ.Core.Model\OpenIZ.Core.Model.csproj">
       <Project>{f1a82a4f-4a57-47d7-ae76-444c8a4ff54a}</Project>
       <Name>OpenIZ.Core.Model</Name>
@@ -221,6 +217,9 @@
     </None>
     <None Include="Data\000-SecurityAuditCodes.dataset">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Data\000-PlaceTypeConceptSet.dataset">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <Content Include="Data\OpenIZ.mdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

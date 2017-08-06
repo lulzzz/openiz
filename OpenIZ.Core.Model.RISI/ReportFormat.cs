@@ -15,7 +15,7 @@
  * the License.
  *
  * User: khannan
- * Date: 2017-1-13
+ * Date: 2017-1-16
  */
 
 using Newtonsoft.Json;
@@ -30,7 +30,7 @@ namespace OpenIZ.Core.Model.RISI
 	[XmlRoot(nameof(ReportFormat), Namespace = "http://openiz.org/risi")]
 	[XmlType(nameof(ReportFormat), Namespace = "http://openiz.org/risi")]
 	[JsonObject(nameof(ReportFormat))]
-    public class ReportFormat : BaseEntityData
+	public class ReportFormat : BaseEntityData
 	{
 		/// <summary>
 		/// The report definition key.

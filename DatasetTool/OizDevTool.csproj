@@ -46,6 +46,9 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\Solution Items\MARC.HI.EHRS.SVC.Core.dll</HintPath>
     </Reference>
+    <Reference Include="MohawkCollege.EHR.Util.SimpleXSD">
+      <HintPath>..\Solution Items\MohawkCollege.EHR.Util.SimpleXSD.dll</HintPath>
+    </Reference>
     <Reference Include="MohawkCollege.Util.Console.Parameters">
       <HintPath>..\Solution Items\MohawkCollege.Util.Console.Parameters.dll</HintPath>
     </Reference>
@@ -59,6 +62,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.ServiceModel.Web" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -68,12 +72,21 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Admin.cs" />
+    <Compile Include="CsdImport.Entity.cs" />
+    <Compile Include="CsdImport.Metadata.cs" />
+    <Compile Include="CsdImport.Place.cs" />
+    <Compile Include="CsdImport.PlaceService.cs" />
+    <Compile Include="CsdImport.Provider.cs" />
+    <Compile Include="Dataset.cs" />
     <Compile Include="Debugger\ProtoDebugger.cs" />
     <Compile Include="Debugger\BreDebugger.cs" />
     <Compile Include="Debugger\Debug.cs" />
     <Compile Include="Debugger\DebuggerBase.cs" />
     <Compile Include="CommandAttribute.cs" />
+    <Compile Include="DocGen.cs" />
+    <Compile Include="ImsiServiceClient.cs" />
     <Compile Include="InteractiveBase.cs" />
+    <Compile Include="ServiceManager.cs" />
     <Compile Include="Warehouse.cs" />
     <Compile Include="ExampleAttribute.cs" />
     <Compile Include="InteractiveAttribute.cs" />
@@ -96,6 +109,11 @@
   <ItemGroup>
     <None Include="..\OpenIZ.licenseheader">
       <Link>OpenIZ.licenseheader</Link>
+    </None>
+    <Compile Include="CsdImport.Organization.cs" />
+    <None Include="oizdt.config.empty">
+      <SubType>Designer</SubType>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="App.config">
       <SubType>Designer</SubType>
@@ -143,9 +161,9 @@
       <Project>{db9bc05e-45f1-4f96-a161-f36bdecaf566}</Project>
       <Name>OpenIZ.Core</Name>
     </ProjectReference>
-    <ProjectReference Include="..\OpenIZ.Persistence.Data.MSSQL\OpenIZ.Persistence.Data.MSSQL.csproj">
-      <Project>{C4E96DB4-D4FA-4703-A3FD-5D9C30DFBB1E}</Project>
-      <Name>OpenIZ.Persistence.Data.MSSQL</Name>
+    <ProjectReference Include="..\OpenIZ.Messaging.AMI.Client\OpenIZ.Messaging.AMI.Client.csproj">
+      <Project>{0FDBD4DB-30AE-4E1D-AAE1-5FE1370DCE3F}</Project>
+      <Name>OpenIZ.Messaging.AMI.Client</Name>
     </ProjectReference>
     <ProjectReference Include="..\OpenIZ.Protocol.Xml\OpenIZ.Protocol.Xml.csproj">
       <Project>{cad6bcb7-758b-4aa4-a5fe-a9fab8a4cf2f}</Project>
@@ -161,6 +179,9 @@
     <Content Include="SeedData.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Service References\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

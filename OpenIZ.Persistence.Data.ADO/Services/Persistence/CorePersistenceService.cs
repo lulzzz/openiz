@@ -1,4 +1,23 @@
-﻿using MARC.HI.EHRS.SVC.Core;
+﻿/*
+ * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
+ *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
+ * the License.
+ * 
+ * User: justi
+ * Date: 2017-1-21
+ */
+using MARC.HI.EHRS.SVC.Core;
 using MARC.HI.EHRS.SVC.Core.Services;
 using OpenIZ.Core.Model;
 using OpenIZ.Core.Model.Interfaces;
@@ -31,6 +50,14 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
 
         // Query persistence
         protected MARC.HI.EHRS.SVC.Core.Services.IQueryPersistenceService m_queryPersistence = ApplicationContext.Current.GetService<MARC.HI.EHRS.SVC.Core.Services.IQueryPersistenceService>();
+
+        /// <summary>
+        /// Get the order by function
+        /// </summary>
+        protected virtual SqlStatement AppendOrderBy(SqlStatement rawQuery)
+        {
+            return rawQuery;
+        }
 
         /// <summary>
         /// Maps the data to a model instance
@@ -105,7 +132,8 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
             int resultCount = 0;
             var results = this.QueryInternal(context, query, queryId, offset, count, out resultCount, countResults);
             totalResults = resultCount;
-            return results.AsParallel().Select(o => {
+            return results.AsParallel().Select(o =>
+            {
                 var subContext = context;
                 var newSubContext = results.Count() > 1;
 
@@ -118,14 +146,15 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
                     else
                         return this.CacheConvert(o, subContext, principal);
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     this.m_tracer.TraceEvent(TraceEventType.Error, e.HResult, "Error performing sub-query: {0}", e);
                     throw;
                 }
                 finally
                 {
-                    if (newSubContext) subContext.Dispose();
+                    if (newSubContext)
+                        subContext.Dispose();
                 }
             });
         }
@@ -181,14 +210,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
                     domainQuery = AdoPersistenceService.GetQueryBuilder().CreateQuery(query);
                 }
 
-                // Build and see if the query already exists on the stack???
-                domainQuery = domainQuery.Build();
-                var cachedQueryResults = context.CacheQuery(domainQuery);
-                if (cachedQueryResults != null)
-                {
-                    totalResults = cachedQueryResults.Count();
-                    return cachedQueryResults;
-                }
+                domainQuery = this.AppendOrderBy(domainQuery);
 
                 // Query id just get the UUIDs in the db
                 if (queryId != Guid.Empty)
@@ -248,12 +270,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
                 if (count.HasValue)
                     domainQuery.Limit(count.Value);
 
-
-                var results = context.Query<TQueryReturn>(domainQuery).OfType<Object>();
-
-                // Cache query result
-                context.AddQuery(domainQuery, results);
-                return results;
+                return this.DomainQueryInternal<TQueryReturn>(context, domainQuery, ref totalResults).OfType<Object>();
 #if DEBUG
             }
             finally
@@ -261,6 +278,29 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
                 sw.Stop();
             }
 #endif
+        }
+
+        /// <summary>
+        /// Perform a domain query
+        /// </summary>
+        protected IEnumerable<TResult> DomainQueryInternal<TResult>(DataContext context, SqlStatement domainQuery, ref int totalResults)
+        {
+
+            // Build and see if the query already exists on the stack???
+            domainQuery = domainQuery.Build();
+            var cachedQueryResults = context.CacheQuery(domainQuery);
+            if (cachedQueryResults != null)
+            {
+                totalResults = cachedQueryResults.Count();
+                return cachedQueryResults.OfType<TResult>();
+            }
+
+            var results = context.Query<TResult>(domainQuery).ToList();
+
+            // Cache query result
+            context.AddQuery(domainQuery, results.OfType<Object>());
+            return results;
+
         }
 
 
@@ -309,7 +349,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
                 else
                 {
                     cacheItem = this.ToModelInstance(o, context, principal);
-                    if(context.Transaction == null)
+                    if (context.Transaction == null)
                         cacheService?.Add(cacheItem);
                 }
                 return cacheItem;

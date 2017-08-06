@@ -15,7 +15,7 @@
  * the License.
  *
  * User: khannan
- * Date: 2016-11-27
+ * Date: 2016-11-30
  */
 
 using MARC.HI.EHRS.SVC.Core;
@@ -84,8 +84,8 @@ namespace OpenIZ.Messaging.AMI.Wcf
 		[PolicyPermission(SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.UnrestrictedAdministration)]
 		public SubmissionResult DeleteCertificate(string rawId, String strReason)
 		{
-            // Revoke reason
-            var reason = (OpenIZ.Core.Model.AMI.Security.RevokeReason)Enum.Parse(typeof(OpenIZ.Core.Model.AMI.Security.RevokeReason), strReason);
+			// Revoke reason
+			var reason = (OpenIZ.Core.Model.AMI.Security.RevokeReason)Enum.Parse(typeof(OpenIZ.Core.Model.AMI.Security.RevokeReason), strReason);
 			int id = Int32.Parse(rawId);
 			var result = this.certTool.GetRequestStatus(id);
 

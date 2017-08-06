@@ -14,15 +14,11 @@
  * License for the specific language governing permissions and limitations under 
  * the License.
  * 
- * User: khannan
- * Date: 2017-3-12
+ * User: justi
+ * Date: 2017-3-13
  */
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Security.Claims;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace OpenIZ.Core.Security
 {
@@ -42,7 +38,7 @@ namespace OpenIZ.Core.Security
 		{
 			this.IsAuthenticated = isAuthenticated;
 			this.Name = name;
-			this.AddClaim(new Claim(ClaimTypes.NameIdentifier, sid.ToString()));
+			this.AddClaim(new Claim(ClaimTypes.Sid, sid.ToString()));
 		}
 
 		/// <summary>

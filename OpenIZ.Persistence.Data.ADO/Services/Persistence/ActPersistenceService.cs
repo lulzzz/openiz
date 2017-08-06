@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-8-3
+ * Date: 2017-1-21
  */
 using OpenIZ.Core.Model.Acts;
 using System;
@@ -244,42 +244,45 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
 
             if (data.Extensions != null && data.Extensions.Any())
                 base.UpdateVersionedAssociatedItems<Core.Model.DataTypes.ActExtension, DbActExtension>(
-                   data.Extensions.Where(o => !o.IsEmpty()),
+                   data.Extensions.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
 
             if (data.Identifiers != null && data.Identifiers.Any())
                 base.UpdateVersionedAssociatedItems<Core.Model.DataTypes.ActIdentifier, DbActIdentifier>(
-                   data.Identifiers.Where(o => !o.IsEmpty()),
+                   data.Identifiers.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
 
             if (data.Notes != null && data.Notes.Any())
                 base.UpdateVersionedAssociatedItems<Core.Model.DataTypes.ActNote, DbActNote>(
-                   data.Notes.Where(o => !o.IsEmpty()),
+                   data.Notes.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
 
             if (data.Participations != null && data.Participations.Any())
+            {
+                data.Participations = data.Participations.Where(o => o != null && !o.IsEmpty()).Select(o => new ActParticipation(o.ParticipationRole?.EnsureExists(context, principal)?.Key ?? o.ParticipationRoleKey , o.PlayerEntityKey) { Quantity = o.Quantity }).ToList();
                 base.UpdateVersionedAssociatedItems<Core.Model.Acts.ActParticipation, DbActParticipation>(
-                   data.Participations.Where(o => !o.IsEmpty()).Select(o=>new ActParticipation(o.ParticipationRoleKey, o.PlayerEntityKey) { Quantity = o.Quantity }).ToList(),
+                   data.Participations,
                     retVal,
                     context,
                     principal);
+            }
 
             if (data.Relationships != null && data.Relationships.Any())
                 base.UpdateVersionedAssociatedItems<Core.Model.Acts.ActRelationship, DbActRelationship>(
-                   data.Relationships.Where(o => !o.IsEmpty()),
+                   data.Relationships.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
 
             if (data.Tags != null && data.Tags.Any())
                 base.UpdateAssociatedItems<Core.Model.DataTypes.ActTag, DbActTag>(
-                   data.Tags.Where(o => !o.IsEmpty()),
+                   data.Tags.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
@@ -328,42 +331,67 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
 
             if (data.Extensions != null)
                 base.UpdateVersionedAssociatedItems<Core.Model.DataTypes.ActExtension, DbActExtension>(
-                   data.Extensions.Where(o => !o.IsEmpty()),
+                   data.Extensions.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
 
             if (data.Identifiers != null)
                 base.UpdateVersionedAssociatedItems<Core.Model.DataTypes.ActIdentifier, DbActIdentifier>(
-                   data.Identifiers.Where(o => !o.IsEmpty()),
+                   data.Identifiers.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
 
             if (data.Notes != null)
                 base.UpdateVersionedAssociatedItems<Core.Model.DataTypes.ActNote, DbActNote>(
-                   data.Notes.Where(o => !o.IsEmpty()),
+                   data.Notes.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);
 
             if (data.Participations != null)
+            {
+                // Correct mixed keys
+                if(AdoPersistenceService.GetConfiguration().DataCorrectionKeys.Contains("edmonton-participation-keyfix"))
+                {
+                    // Obsolete all
+                    foreach(var itm in context.Query<DbActParticipation>(o=>o.SourceKey == retVal.Key && o.ObsoleteVersionSequenceId == null && o.ParticipationRoleKey == ActParticipationKey.Consumable)) {
+                        itm.ObsoleteVersionSequenceId = retVal.VersionSequence;
+                        context.Update(itm);
+                    }
+                    // Now we want to re-point to correct the issue
+                    foreach (var itm in context.Query<DbActParticipation>(o => o.SourceKey == retVal.Key && o.ParticipationRoleKey == ActParticipationKey.Consumable && o.ObsoleteVersionSequenceId == retVal.VersionSequence))
+                    {
+
+                        var dItm = data.Participations.Find(o => o.Key == itm.Key);
+                        if(dItm != null)
+                            itm.TargetKey = dItm.PlayerEntityKey.Value;
+                        itm.ObsoleteVersionSequenceId = null;
+                        context.Update(itm);
+                    }
+                }
+
+                // Update versioned association items
                 base.UpdateVersionedAssociatedItems<Core.Model.Acts.ActParticipation, DbActParticipation>(
-                                      data.Participations.Where(o => !o.IsEmpty()),
-                    retVal,
-                    context,
-                    principal);
+                      data.Participations.Where(o => o != null && !o.IsEmpty()),
+                        retVal,
+                        context,
+                        principal);
+
+
+            }
 
             if (data.Relationships != null)
                 base.UpdateVersionedAssociatedItems<Core.Model.Acts.ActRelationship, DbActRelationship>(
-                   data.Relationships.Where(o => !o.IsEmpty() && (o.SourceEntityKey == data.Key || !o.SourceEntityKey.HasValue)),
+                   data.Relationships.Where(o => o != null && !o.IsEmpty() && (o.SourceEntityKey == data.Key || !o.SourceEntityKey.HasValue)),
                     retVal,
                     context,
                     principal);
 
             if (data.Tags != null)
                 base.UpdateAssociatedItems<Core.Model.DataTypes.ActTag, DbActTag>(
-                   data.Tags.Where(o => !o.IsEmpty()),
+                   data.Tags.Where(o => o != null && !o.IsEmpty()),
                     retVal,
                     context,
                     principal);

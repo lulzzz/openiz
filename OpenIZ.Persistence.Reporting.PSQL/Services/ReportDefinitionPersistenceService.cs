@@ -1,34 +1,30 @@
 ﻿/*
  * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
  *
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
- * User: Nityan
- * Date: 2017-4-15
+ *
+ * User: khannan
+ * Date: 2017-4-16
  */
 
+using OpenIZ.OrmLite;
+using OpenIZ.Persistence.Reporting.PSQL.Model;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Security.Principal;
-using MARC.HI.EHRS.SVC.Core;
-using MARC.HI.EHRS.SVC.Core.Data;
-using MARC.HI.EHRS.SVC.Core.Services;
-using OpenIZ.Core.Model.Entities;
-using OpenIZ.OrmLite;
-using OpenIZ.Persistence.Reporting.PSQL.Model;
+using OpenIZ.Core.Security;
 using ReportDefinition = OpenIZ.Core.Model.RISI.ReportDefinition;
 
 namespace OpenIZ.Persistence.Reporting.PSQL.Services
@@ -124,6 +120,27 @@ namespace OpenIZ.Persistence.Reporting.PSQL.Services
 		}
 
 		/// <summary>
+		/// Obsoletes the specified data.
+		/// </summary>
+		/// <param name="context">The context.</param>
+		/// <param name="model">The model.</param>
+		/// <param name="principal">The principal.</param>
+		/// <returns>Returns the obsoleted data.</returns>
+		public override ReportDefinition ObsoleteInternal(DataContext context, ReportDefinition model, IPrincipal principal)
+		{
+			// delete the report format associations
+			context.Delete<ReportDefinitionFormatAssociation>(c => c.SourceKey == model.Key.Value);
+
+			// delete the report parameter associations
+			context.Delete<ReportParameter>(c => c.ReportId == model.Key.Value);
+
+			// delete the actual report definition
+			base.ObsoleteInternal(context, model, principal);
+
+			return model;
+		}
+
+		/// <summary>
 		/// Converts a domain instance to a model instance.
 		/// </summary>
 		/// <param name="domainInstance">The domain instance to convert.</param>
@@ -213,7 +230,7 @@ namespace OpenIZ.Persistence.Reporting.PSQL.Services
 
 			foreach (var reportParameter in reportDefinition.Parameters)
 			{
-				var existingReportParameter = reportParameterPersistenceService.Get(context, reportParameter.CorrelationId, principal);
+				var existingReportParameter = context.Query<ReportParameter>(c => c.ReportId == reportDefinition.Key.Value && c.CorrelationId == reportParameter.CorrelationId).FirstOrDefault();
 
 				reportParameter.ReportDefinitionKey = reportDefinition.Key.Value;
 

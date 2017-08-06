@@ -15,12 +15,11 @@
  * the License.
  *
  * User: khannan
- * Date: 2016-12-4
+ * Date: 2017-1-12
  */
 
 using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
 using System.Xml.Serialization;
 
 namespace OpenIZ.Core.Model.RISI
@@ -30,7 +29,7 @@ namespace OpenIZ.Core.Model.RISI
 	/// </summary>
 	[XmlType(nameof(ParameterType), Namespace = "http://openiz.org/risi")]
 	[XmlRoot(nameof(ParameterType), Namespace = "http://openiz.org/risi")]
-    [JsonObject(nameof(ParameterType))]
+	[JsonObject(nameof(ParameterType))]
 	public class ParameterType : BaseEntityData
 	{
 		/// <summary>

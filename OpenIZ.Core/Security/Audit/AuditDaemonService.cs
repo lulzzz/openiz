@@ -1,4 +1,23 @@
-﻿using MARC.HI.EHRS.SVC.Auditing.Data;
+﻿/*
+ * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
+ *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
+ * the License.
+ * 
+ * User: justi
+ * Date: 2017-5-3
+ */
+using MARC.HI.EHRS.SVC.Auditing.Data;
 using MARC.HI.EHRS.SVC.Core;
 using MARC.HI.EHRS.SVC.Core.Services;
 using MARC.HI.EHRS.SVC.Core.Services.Security;
@@ -8,6 +27,7 @@ using OpenIZ.Core.Model;
 using OpenIZ.Core.Services;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
@@ -18,6 +38,7 @@ namespace OpenIZ.Core.Security.Audit
     /// <summary>
     /// A daemon service which listens to audit sources and forwards them to the auditor
     /// </summary>
+    [Description("SECURITY AUDIT SERVICE")]
     public class AuditDaemonService : IDaemonService
     {
         private bool m_safeToStop = false;
@@ -70,7 +91,11 @@ namespace OpenIZ.Core.Security.Audit
                         svc.DataDisclosed += (so, se) => AuditUtil.AuditDataAction<IdentifiedData>(EventTypeCodes.Query, ActionType.Read, AuditableObjectLifecycle.Disclosure, EventIdentifierType.Query, se.Success ? OutcomeIndicator.Success : OutcomeIndicator.SeriousFail, se.Query);
 
                         if (svc is ISecurityAuditEventSource)
-                            (svc as ISecurityAuditEventSource).SecurityAttributesChanged += (so, se) => AuditUtil.AuditSecurityAttributeAction(se.Objects, se.Success, se.ChangedProperties);
+                        {
+                            (svc as ISecurityAuditEventSource).SecurityAttributesChanged += (so, se) => AuditUtil.AuditSecurityAttributeAction(se.Objects, se.Success, se.ChangedProperties.ToArray());
+                            (svc as ISecurityAuditEventSource).SecurityResourceCreated += (so, se) => AuditUtil.AuditSecurityCreationAction(se.Objects, se.Success, se.ChangedProperties);
+                            (svc as ISecurityAuditEventSource).SecurityResourceDeleted += (so, se) => AuditUtil.AuditSecurityDeletionAction(se.Objects, se.Success, se.ChangedProperties);
+                        }
                     }
 
                     AuditUtil.AuditApplicationStartStop(EventTypeCodes.ApplicationStart);

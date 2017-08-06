@@ -15,7 +15,7 @@
  * the License.
  *
  * User: khannan
- * Date: 2017-1-5
+ * Date: 2017-1-7
  */
 
 using Newtonsoft.Json;
@@ -28,28 +28,28 @@ namespace OpenIZ.Core.Model.RISI
 	/// Represents a parameter.
 	/// </summary>
 	[XmlType(nameof(ReportParameter), Namespace = "http://openiz.org/risi")]
-    [JsonObject(nameof(ReportParameter))]
+	[JsonObject(nameof(ReportParameter))]
 	public class ReportParameter : BaseEntityData
 	{
-		/// <summary>
-		/// The parameter type key.
-		/// </summary>
-		private Guid parameterTypeKey;
-
 		/// <summary>
 		/// The parameter type.
 		/// </summary>
 		private ParameterType parameterType;
 
 		/// <summary>
-		/// The report definition key.
+		/// The parameter type key.
 		/// </summary>
-		private Guid reportDefinitionKey;
+		private Guid parameterTypeKey;
 
 		/// <summary>
 		/// The report definition.
 		/// </summary>
 		private ReportDefinition reportDefinition;
+
+		/// <summary>
+		/// The report definition key.
+		/// </summary>
+		private Guid reportDefinitionKey;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ReportParameter"/> class.
@@ -119,16 +119,33 @@ namespace OpenIZ.Core.Model.RISI
 		public string Name { get; set; }
 
 		/// <summary>
+		/// Gets or sets the parameter type associated with the report parameter.
+		/// </summary>
+		[XmlElement("parameterType"), JsonProperty("parameterType")]
+		public ParameterType ParameterType { get; set; }
+
+		/// <summary>
 		/// Gets or sets the order of the parameter.
 		/// </summary>
 		[XmlAttribute("position"), JsonProperty("position")]
 		public int Position { get; set; }
 
 		/// <summary>
-		/// Gets or sets the parameter type associated with the report parameter.
+		/// Gets or sets the report definition associated with the report parameter.
 		/// </summary>
-		[XmlElement("parameterType"), JsonProperty("parameterType")]
-		public ParameterType ParameterType { get; set; }
+		[XmlIgnore, JsonIgnore]
+		public ReportDefinition ReportDefinition
+		{
+			get
+			{
+				return this.reportDefinition;
+			}
+			set
+			{
+				this.reportDefinition = value;
+				this.reportDefinitionKey = value.Key ?? Guid.Empty;
+			}
+		}
 
 		/// <summary>
 		/// Gets or sets the report definition key.
@@ -145,23 +162,6 @@ namespace OpenIZ.Core.Model.RISI
 			{
 				this.reportDefinitionKey = value;
 				this.reportDefinition = null;
-			}
-		}
-
-		/// <summary>
-		/// Gets or sets the report definition associated with the report parameter.
-		/// </summary>
-		[XmlIgnore, JsonIgnore]
-		public ReportDefinition ReportDefinition
-		{
-			get
-			{
-				return this.reportDefinition;
-			}
-			set
-			{
-				this.reportDefinition = value;
-				this.reportDefinitionKey = value.Key ?? Guid.Empty;
 			}
 		}
 

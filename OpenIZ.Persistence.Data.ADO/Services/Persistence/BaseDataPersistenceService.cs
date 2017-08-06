@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-8-2
+ * Date: 2017-2-4
  */
 using System;
 using System.Linq;
@@ -66,6 +66,9 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
                 nvd.UpdatedByKey = nvd.UpdatedByKey ?? principal.GetUserKey(context);
                 nvd.UpdatedTime = DateTimeOffset.Now;
             }
+
+            if (data.CreationTime == DateTimeOffset.MinValue || data.CreationTime.Year < 100)
+                data.CreationTime = DateTimeOffset.Now;
 
             var domainObject = this.FromModelInstance(data, context, principal) as TDomain;
 
@@ -127,7 +130,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
         public override IEnumerable<TModel> QueryInternal(DataContext context, Expression<Func<TModel, bool>> query, Guid queryId, int offset, int? count, out int totalResults, IPrincipal principal, bool countResults = true)
         {
             var qresult = this.QueryInternal(context, query, queryId, offset, count, out totalResults, countResults);
-            return qresult.AsParallel().Select(o => o is Guid ? this.Get(context, (Guid)o, principal) : this.CacheConvert(o, context, principal));
+            return qresult.Select(o => o is Guid ? this.Get(context, (Guid)o, principal) : this.CacheConvert(o, context, principal)).ToList();
         }
 
         /// <summary>

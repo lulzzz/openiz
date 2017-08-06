@@ -1,6 +1,6 @@
 ﻿/*
  * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
- * 
+ *
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you 
  * may not use this file except in compliance with the License. You may 
@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2017-3-31
+ * Date: 2017-4-22
  */
 using System;
 using System.Diagnostics.Tracing;
@@ -30,7 +30,9 @@ namespace OpenIZ.Core.Diagnostics
     /// </summary>
     public class LogTraceWriter : TraceWriter
     {
-        private Dictionary<String, TraceSource> m_traceSources = new Dictionary<string, TraceSource>();
+
+        // PCL trace-source
+        private TraceSource m_traceSource = new TraceSource("OpenIZ.Core.PCL");
 
         /// <summary>
         /// Initialize the trace writer
@@ -46,31 +48,23 @@ namespace OpenIZ.Core.Diagnostics
         /// </summary>
         protected override void WriteTrace(EventLevel level, string source, string format, params object[] args)
         {
-            TraceSource tsource = null;
-            if (!this.m_traceSources.TryGetValue(source, out tsource))
-                lock (this.m_traceSources)
-                    if (!this.m_traceSources.ContainsKey(source))
-                    {
-                        tsource = new TraceSource(source);
-                        this.m_traceSources.Add(source, tsource);
-                    }
-
+           
             switch (level)
             {
                 case EventLevel.Error:
-                    tsource?.TraceEvent(TraceEventType.Error, 0, format, args);
+                    this.m_traceSource?.TraceEvent(TraceEventType.Error, 0, format, args);
                     break;
                 case EventLevel.Informational:
-	                tsource?.TraceEvent(TraceEventType.Information, 0, format, args);
+                    this.m_traceSource?.TraceEvent(TraceEventType.Information, 0, format, args);
                     break;
                 case EventLevel.Critical:
-	                tsource?.TraceEvent(TraceEventType.Critical, 0, format, args);
+                    this.m_traceSource?.TraceEvent(TraceEventType.Critical, 0, format, args);
                     break;
                 case EventLevel.Verbose:
-	                tsource?.TraceEvent(TraceEventType.Verbose, 0, format, args);
+                    this.m_traceSource?.TraceEvent(TraceEventType.Verbose, 0, format, args);
                     break;
                 case EventLevel.Warning:
-	                tsource?.TraceEvent(TraceEventType.Warning, 0, format, args);
+                    this.m_traceSource?.TraceEvent(TraceEventType.Warning, 0, format, args);
                     break;
 
             }

@@ -17,7 +17,9 @@
  * User: justi
  * Date: 2016-8-2
  */
+using MARC.HI.EHRS.SVC.Core;
 using MohawkCollege.Util.Console.Parameters;
+using OpenIZ.Core.Services.Impl;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -32,8 +34,10 @@ namespace OizDevTool
 {
     class Program
     {
+
         static void Main(string[] args)
         {
+
             AppDomain.CurrentDomain.SetData(
                "DataDirectory",
                Path.GetDirectoryName(typeof(Program).Assembly.Location));
@@ -46,6 +50,16 @@ namespace OizDevTool
             {
                 var consoleParms = new ParameterParser<ConsoleParameters>().Parse(args);
 
+                if (!consoleParms.CustomConfig)
+                {
+                    Console.WriteLine("Using openiz config");
+
+                    ApplicationContext.Current.AddServiceProvider(typeof(FileConfigurationService));
+                }
+                else
+                {
+                    Console.WriteLine("Using oizdt config");
+                }
                 if (consoleParms.Help)
                     PrintHelp(consoleParms.ToolName);
                 else

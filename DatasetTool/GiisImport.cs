@@ -1,4 +1,23 @@
-﻿using GIIS.DataLayer;
+﻿/*
+ * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
+ *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
+ * the License.
+ * 
+ * User: justi
+ * Date: 2017-4-5
+ */
+using GIIS.DataLayer;
 using MARC.HI.EHRS.SVC.Core;
 using MARC.HI.EHRS.SVC.Core.Services;
 using MohawkCollege.Util.Console.Parameters;
@@ -63,6 +82,10 @@ namespace OizDevTool
             [Parameter("anon")]
             [Description("Anonymizes the demographic data for testing")]
             public bool Anonymize { get; set; }
+
+            [Parameter("confirm")]
+            [Description("Confirms before creating facility in OpenIZ")]
+            public bool ConfirmCreate { get; set; }
         }
 
         /// <summary>
@@ -177,12 +200,10 @@ namespace OizDevTool
         {
             var retVal = new EntityAddress();
             retVal.AddressUseKey = typeKey;
-            if (!String.IsNullOrEmpty(place.Code))
-                retVal.Component.Add(new EntityAddressComponent(AddressComponentKeys.CensusTract, place.Code));
 
             Queue<Guid> addressParts = new Queue<Guid>(new Guid[] {
-                AddressComponentKeys.AdditionalLocator,
                 AddressComponentKeys.StreetAddressLine,
+                AddressComponentKeys.Precinct,
                 AddressComponentKeys.City,
                 AddressComponentKeys.County,
                 AddressComponentKeys.State,
@@ -239,7 +260,9 @@ namespace OizDevTool
                     {
                         new EntityName(NameUseKeys.OfficialRecord, item.ItemObject.Name)
                     },
-                    StatusConceptKey = item.ItemObject.IsActive ? StatusKeys.Active : StatusKeys.Obsolete
+                    StatusConceptKey = item.ItemObject.IsActive ? StatusKeys.Active : StatusKeys.Obsolete,
+                    QuantityConceptKey = Guid.Parse("a4fc5c93-31c2-4f87-990e-c5a4e5ea2e76"),
+                    Quantity = 1
                 };
                 context.Action.Add(new DataUpdate() { InsertIfNotExists = true, Element = material });
                 materialMap.Add(item.ItemObject.Code, materialId);
@@ -282,7 +305,7 @@ namespace OizDevTool
                 TypeConceptKey = typeConceptKey == Guid.Empty ? (Guid?)null : typeConceptKey,
                 Relationships = new List<EntityRelationship>()
                 {
-                    new EntityRelationship(EntityRelationshipTypeKeys.ManufacturedProduct, id) { SourceEntityKey = materialId },
+                    new EntityRelationship(EntityRelationshipTypeKeys.Instance, id) { SourceEntityKey = materialId, Quantity = item.GtinObject?.Alt1QtyPer },
                 },
                 Names = new List<EntityName>()
                 {
@@ -296,10 +319,12 @@ namespace OizDevTool
                     new EntityIdentifier(new AssigningAuthority("GIIS_ITEM_LOT", "GIIS ItemLot Identifiers", "1.3.6.1.4.1.<<YOUR.PEN>>.4"), item.Id.ToString())
                 },
                 IsAdministrative = false,
-                StatusConceptKey = StatusKeys.Active
+                StatusConceptKey = StatusKeys.Active,
+                QuantityConceptKey = Guid.Parse("a4fc5c93-31c2-4f87-990e-c5a4e5ea2e76"),
+                Quantity = 1
             };
             if (organizationId != Guid.Empty)
-                retVal.Relationships.Add(new EntityRelationship(EntityRelationshipTypeKeys.WarrantedProduct, id) { SourceEntityKey = organizationId });
+                retVal.Relationships.Add(new EntityRelationship(EntityRelationshipTypeKeys.ManufacturedProduct, id) { SourceEntityKey = organizationId });
 
             return retVal;
         }
@@ -359,7 +384,7 @@ namespace OizDevTool
                         IsNegated = o.NonvaccinationReasonId != 0,
                         ReasonConceptKey = o.NonvaccinationReasonId > 0 ? (Guid?)nonVaccinationReasonMap[o.NonVaccinationReason.Code] : null,
                         MoodConceptKey = ActMoodKeys.Eventoccurrence,
-                        SequenceId = o.Dose?.DoseNumber ?? 0,
+                        SequenceId = o.Dose?.Fullname == "BCG" ? 0 : ( o.Dose?.DoseNumber ?? 0),
                         TypeConceptKey = Guid.Parse("6e7a3521-2967-4c0a-80ec-6c5c197b2178"),
                         RouteKey = NullReasonKeys.NoInformation,
                         DoseUnitKey = Guid.Parse("A77B8D83-1CC9-4806-A268-5D1738154AFA"),
@@ -367,7 +392,7 @@ namespace OizDevTool
                 {
                     new ActParticipation(ActParticipationKey.Location, facilityMap[o.HealthFacilityId]),
                     new ActParticipation(ActParticipationKey.RecordTarget, patient.Key.Value),
-                    o.VaccineLotId <= 0 ? null : new ActParticipation(ActParticipationKey.Consumable, manufacturedMaterialMap[o.VaccineLotId]),
+                    o.VaccineLotId <= 0 ? null : new ActParticipation(ActParticipationKey.Consumable, manufacturedMaterialMap[o.VaccineLotId]) { Quantity = -1 },
                     o.Dose?.ScheduledVaccination?.ItemId == null ? null : new ActParticipation(ActParticipationKey.Product, materialMap[matId]),
                     userEntityMap.ContainsKey(o.ModifiedBy) && userEntityMap[o.ModifiedBy] != Guid.Empty ? new ActParticipation(ActParticipationKey.Authororiginator, userEntityMap[o.ModifiedBy]) : null
                 }
@@ -805,18 +830,38 @@ namespace OizDevTool
             Console.WriteLine("Map OpenIZ Places...");
             placeEntityMap = places.Where(o => o.Identifiers.Any(i => i.Authority.DomainName == "GIIS_PLCID")).ToDictionary(o => Int32.Parse(o.Identifiers.First(i => i.Authority.DomainName == "GIIS_PLCID").Value), o => o.Key.Value);
             facilityMap = facilities.Where(o => o.Identifiers.Any(i => i.Authority.DomainName == "GIIS_FACID")).ToDictionary(o => Int32.Parse(o.Identifiers.First(i => i.Authority.DomainName == "GIIS_FACID").Value), o => o.Key.Value);
-            facilityTypeId = conceptPersister.Query(o => o.ConceptSets.Any(c => c.Mnemonic == "HealthFacilityTypes"), AuthenticationContext.SystemPrincipal).ToDictionary(o => HealthFacilityType.GetHealthFacilityTypeList().First(f => o.Mnemonic.EndsWith(f.Name.Replace(" ", ""))).Id, o => o.Key.Value);
+            facilityTypeId = conceptPersister.Query(o => o.ConceptSets.Any(c => c.Mnemonic == "HealthFacilityTypes"), AuthenticationContext.SystemPrincipal).Where(o=> HealthFacilityType.GetHealthFacilityTypeList().Any(f => o.Mnemonic.EndsWith(f.Name.Replace(" ", "")))).ToDictionary(o => HealthFacilityType.GetHealthFacilityTypeList().First(f => o.Mnemonic.EndsWith(f.Name.Replace(" ", ""))).Id, o => o.Key.Value);
+
+#if DEBUG
+            Console.WriteLine("Will use the following map for Health Facility Types");
+            foreach (var itm in facilityTypeId)
+                Console.WriteLine("{0} ---> {1}", itm.Key, itm.Value);
+#endif
 
             Console.WriteLine("Map OpenIZ Materials...");
             manufacturedMaterialMap = manufmaterials.Where(o => o.Identifiers.Any(i => i.Authority.DomainName == "GIIS_ITEM_LOT")).ToDictionary(o => Int32.Parse(o.Identifiers.First(i => i.Authority.DomainName == "GIIS_ITEM_LOT").Value), o => o.Key.Value);
-            // Map materials
+
+#if DEBUG
+            Console.WriteLine("Will use the following map for Stock Items");
+            foreach (var itm in manufacturedMaterialMap)
+                Console.WriteLine("{0} ---> {1}", itm.Key, itm.Value);
+#endif
+
             foreach (var itm in materials)
             {
                 var giisCode = Item.GetItemById(Int32.Parse(itm.Identifiers.FirstOrDefault(o => o.Authority.DomainName == "GIIS_ITEM")?.Value));
                 if (giisCode != null && !materialMap.ContainsKey(giisCode.Code))
+                {
                     materialMap.Add(giisCode.Code, itm.Key.Value);
+                }
             }
 
+            // Map materials
+#if DEBUG
+            Console.WriteLine("Will use the following map for Item Types");
+            foreach(var itm in materialMap)
+                Console.WriteLine("{0} ---> {1}", itm.Key, itm.Value);
+#endif
             DatasetInstall resultSet = new DatasetInstall() { Id = $"Ad-hoc GIIS import {String.Join(":", parms.FacilityId)}" };
 
             IEnumerable facilityIdentifiers = parms.FacilityId;
@@ -830,9 +875,27 @@ namespace OizDevTool
                     Console.Error.WriteLine("Facility {0} not found!!!", facId);
                     continue;
                 }
+
                 var children = Child.GetChildByHealthFacilityId(giisHf.Id);
 
                 var dbFacility = placePersister.Query(o => o.Identifiers.Any(i => i.Value == facId && i.Authority.DomainName == "GIIS_FACID"), AuthenticationContext.AnonymousPrincipal).FirstOrDefault();
+                
+                // Confirm creation
+                if(dbFacility == null && parms.ConfirmCreate)
+                {
+                    Console.WriteLine("Facility with GIIS_FACID #{0} not found", facId);
+                    var createUpdate = Prompt("Do you want to (c)reate a new facility or (f)ind another or (a)bort?", new string[] { "c", "f", "a" });
+                    switch (createUpdate)
+                    {
+                        case "a":
+                            return;
+                        case "f":
+                            dbFacility = MergeFind(giisHf.Name);
+                            if (dbFacility == null)
+                                return;
+                            break;
+                    }
+                }
 
                 if (dbFacility == null)
                 {
@@ -847,9 +910,9 @@ namespace OizDevTool
                     Console.WriteLine("Will update facility {0} ({1} patients)...", giisHf.Name, children.Count);
 
                     // Clear and update
-                    dbFacility.Relationships.Clear();
+                    dbFacility.Relationships.RemoveAll(o => o.RelationshipTypeKey == EntityRelationshipTypeKeys.OwnedEntity);
                     var bkup = MapFacility(giisHf);
-                    dbFacility.Relationships = bkup.Relationships;
+                    dbFacility.Relationships.AddRange(bkup.Relationships.Where(o=>o.RelationshipTypeKey == EntityRelationshipTypeKeys.OwnedEntity));
                     dbFacility.Extensions = bkup.Extensions;
 
                     // Insert
@@ -917,7 +980,8 @@ namespace OizDevTool
 
                 if (parms.SingleTransaction)
                 {
-                    Bundle b = new Bundle() { Item = resultSet.Action.Select(o => o.Element).ToList() };
+                    Bundle b = new Bundle() { Item = resultSet.Action.Where(o=>o.Element != null).Select(o => o.Element).ToList() };
+                    Console.WriteLine("Will live insert {0} items", b.Item.Count());
                     start = DateTime.Now;
                     remaining = TimeSpan.MaxValue;
                     float pdone = 0;
@@ -985,6 +1049,63 @@ namespace OizDevTool
         }
 
         /// <summary>
+        /// Find a place by name
+        /// </summary>
+        private static OpenIZ.Core.Model.Entities.Place MergeFind(string name)
+        {
+            OpenIZ.Core.Model.Entities.Place retVal = null;
+            name = name.Split(' ')[0];
+
+            var placeService = ApplicationContext.Current.GetService<IDataPersistenceService<OpenIZ.Core.Model.Entities.Place>>();
+            while(retVal == null)
+            {
+                Console.WriteLine("Candidates matching: *{0}*", name);
+                Console.WriteLine("======================{0}=", new String('=', name.Length));
+                var candidates = placeService.Query(o => o.ClassConceptKey == EntityClassKeys.ServiceDeliveryLocation && o.Names.Any(n => n.Component.Any(c => c.Value.Contains(name))), AuthenticationContext.SystemPrincipal);
+                int optNum = 0;
+                foreach (var p in candidates)
+                    Console.WriteLine("\t({0}) - {1} - {2} - {3}", ++optNum, p.LoadCollection<EntityName>("Names").FirstOrDefault().ToDisplay(),
+                        p.LoadProperty<Concept>("TypeConcept").ToDisplay(),
+                        p.LoadCollection<EntityAddress>("Addresses").FirstOrDefault().ToDisplay());
+
+                String[] options = Enumerable.Repeat(1, optNum).Select(o=>o.ToString()).ToArray();
+                var option = Prompt("Match Facility # or (s)earch for another or (a)bort:", options.Union(new String[] { "s", "a" }).ToArray());
+                if (option == "s")
+                {
+                    Console.Write("Search Term:");
+                    name = Console.ReadLine();
+                }
+                else if (option == "a")
+                    return null;
+                else
+                    try
+                    {
+                        return candidates.ElementAt(Int32.Parse(option));
+                    }
+                    catch
+                    {
+                        Console.WriteLine("Invalid selection: {0}", option);
+                    }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Prompt for input
+        /// </summary>
+        private static String Prompt(string prompt, String[] validResponses)
+        {
+            String retVal = String.Empty;
+            while (!validResponses.Contains(retVal))
+            {
+                Console.Write(prompt);
+                retVal = Console.ReadLine();
+            }
+            return retVal;
+        }
+
+        /// <summary>
         /// Imports the Core data
         /// </summary>
         [Description("Searches facility list from GIIS")]
@@ -1027,8 +1148,9 @@ namespace OizDevTool
             // Concepts
             Console.WriteLine("Generating OpenIZ Concepts to support GIIS data");
             DatasetInstall conceptDataset = new DatasetInstall() { Id = "Concepts to support GIIS data", Action = new List<DataInstallAction>() };
-            DataInsert healthFacilityTypes = new DataInsert()
+            DataUpdate healthFacilityTypes = new DataUpdate()
             {
+                InsertIfNotExists = true,
                 Element = new ConceptSet()
                 {
                     Key = Guid.NewGuid(),
@@ -1039,8 +1161,10 @@ namespace OizDevTool
                 },
                 Association = new List<DataAssociation>()
             },
-            placeTypes = new DataInsert()
+            placeTypes = new DataUpdate()
             {
+                InsertIfNotExists = true,
+
                 Element = new ConceptSet()
                 {
                     Key = Guid.NewGuid(),
@@ -1201,14 +1325,8 @@ namespace OizDevTool
 
             (healthFacilityTypes.Element as ConceptSet).ConceptsXml = healthFacilityTypes.Association.Select(o => o.Element.Key.Value).ToList();
             (placeTypes.Element as ConceptSet).ConceptsXml = placeTypes.Association.Select(o => o.Element.Key.Value).ToList();
-            conceptDataset.Action.AddRange(healthFacilityTypes.Association.Select(o => new DataInsert() { Element = o.Element }));
-            conceptDataset.Action.AddRange(placeTypes.Association.Select(o => new DataInsert() { Element = o.Element }));
-            conceptDataset.Action.AddRange(new DataInstallAction[]
-            {
-                new DataInsert() { Element = new Concept() { Key = industryManufacturer, Mnemonic = "Industry-Manufacturing", ClassKey = ConceptClassKeys.Other, IsSystemConcept = false, StatusConceptKey = StatusKeys.Active, ConceptNames = new List<ConceptName>() { new ConceptName() { Language = "en", Name = "Manufacturing"  } }, ConceptSetsXml = new List<Guid>() { Guid.Parse("d1597e50-845a-46e1-b9ae-6f99ff93d9db") } } },
-                new DataInsert() { Element = new Concept() { Key = industryOther, Mnemonic = "Industry-OtherUnknown", ClassKey = ConceptClassKeys.Other, IsSystemConcept = false, StatusConceptKey = StatusKeys.Active, ConceptNames = new List<ConceptName>() { new ConceptName() { Language = "en", Name = "Other/Unknown"  } } , ConceptSetsXml = new List<Guid>() { Guid.Parse("d1597e50-845a-46e1-b9ae-6f99ff93d9db") } } },
-                new DataInsert() { Element = new Concept() { Key = industryHealthDelivery, Mnemonic = "Industry-HealthDelivery", ClassKey = ConceptClassKeys.Other, IsSystemConcept = false, StatusConceptKey = StatusKeys.Active , ConceptNames = new List<ConceptName>() { new ConceptName() { Language = "en", Name = "Healthcare"  } } , ConceptSetsXml = new List<Guid>() { Guid.Parse("d1597e50-845a-46e1-b9ae-6f99ff93d9db") } } }
-            });
+            conceptDataset.Action.AddRange(healthFacilityTypes.Association.Select(o => new DataUpdate() { InsertIfNotExists = true, Element = o.Element }));
+            conceptDataset.Action.AddRange(placeTypes.Association.Select(o => new DataUpdate() { InsertIfNotExists = true,  Element = o.Element }));
             healthFacilityTypes.Association.Clear();
             placeTypes.Association.Clear();
             conceptDataset.Action.Add(healthFacilityTypes);

@@ -40,14 +40,11 @@ namespace OpenIZ.Core.Model.Query
         {
             // The dictionary
             private List<KeyValuePair<String, Object>> m_query;
-
-
-            /// <summary>
-            /// Initializes a new instance of the
-            /// <see cref="OpenIZ.Mobile.Core.Interop.Util.HttpQueryExpressionBuilder+HttpQueryExpressionVisitor"/> class.
-            /// </summary>
-            /// <param name="workingDictionary">Working dictionary.</param>
-            public HttpQueryExpressionVisitor(List<KeyValuePair<String, Object>> workingDictionary)
+			/// <summary>
+			/// Initializes a new instance of the <see cref="HttpQueryExpressionVisitor"/> class.
+			/// </summary>
+			/// <param name="workingDictionary">The working dictionary.</param>
+			public HttpQueryExpressionVisitor(List<KeyValuePair<String, Object>> workingDictionary)
             {
                 this.m_query = workingDictionary;
             }
@@ -124,6 +121,13 @@ namespace OpenIZ.Core.Model.Query
                             var parmName = this.ExtractPath(node.Object);
                             object parmValue = this.ExtractValue(node.Arguments[0]);
                             this.AddCondition(parmName, "~" + parmValue.ToString());
+                            return null;
+                        }
+                    case "StartsWith":
+                        {
+                            var parmName = this.ExtractPath(node.Object);
+                            object parmValue = this.ExtractValue(node.Arguments[0]);
+                            this.AddCondition(parmName, "^" + parmValue.ToString());
                             return null;
                         }
                     case "Any":

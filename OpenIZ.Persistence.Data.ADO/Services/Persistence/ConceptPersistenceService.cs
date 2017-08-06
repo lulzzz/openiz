@@ -15,7 +15,7 @@
  * the License.
  * 
  * User: justi
- * Date: 2016-6-18
+ * Date: 2017-1-21
  */
 using OpenIZ.Core.Model.DataTypes;
 using System;
@@ -48,7 +48,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
         public override Core.Model.DataTypes.Concept ToModelInstance(object dataInstance, DataContext context, IPrincipal principal)
         {
             var dbConceptVersion = (dataInstance as CompositeResult)?.Values.OfType<DbConceptVersion>().FirstOrDefault() ?? dataInstance as DbConceptVersion;
-            var retVal = base.ToModelInstance(dbConceptVersion, context, principal);
+            var retVal = m_mapper.MapDomainInstance<DbConceptVersion, Concept>(dbConceptVersion);
 
             if (retVal == null) return null;
 
@@ -58,7 +58,17 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
                 retVal.IsSystemConcept = dbConcept.IsReadonly;
             }
             //retVal.ConceptSetsXml = de.Concept.ConceptSetMembers.Select(o => o.ConceptSetId).ToList();
-            //retVal.LoadAssociations(context, principal);
+
+            if (context.LoadState == Core.Model.LoadState.FullLoad)
+            {
+                retVal.LoadAssociations(context, principal);
+                retVal.LoadState = Core.Model.LoadState.FullLoad;
+            }
+            else
+            {
+                retVal.LoadState = Core.Model.LoadState.PartialLoad;
+                retVal.ConceptNames = context.Query<DbConceptName>(o => o.SourceKey == retVal.Key).Select(o => new ConceptName(o.Language, o.Name)).ToList();
+            }
             return retVal;
         }
 
@@ -154,7 +164,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
                     context.Insert(new DbConceptSetConceptAssociation() { ConceptKey = retVal.Key.Value, ConceptSetKey = i });
                 }
 
-                var delConcepts = existingConceptSets.ToList().Where(o => !data.ConceptSetsXml.Exists(c => c == o));
+                var delConcepts = existingConceptSets.ToList().Where(o => !data.ConceptSetsXml.Contains(o));
                 foreach (var i in delConcepts)
                     context.Delete<DbConceptSetConceptAssociation>(p => p.ConceptKey == retVal.Key.Value && p.ConceptSetKey == i);
             }
@@ -201,7 +211,7 @@ namespace OpenIZ.Persistence.Data.ADO.Services.Persistence
         public IEnumerable GetFromSource(DataContext context, Guid id, decimal? versionSequenceId, IPrincipal principal)
         {
             int tr = 0;
-            return this.QueryInternal(context, this.BuildSourceQuery<ConceptName>(id, versionSequenceId), Guid.Empty, 0, null, out tr, principal, false);
+            return this.QueryInternal(context, this.BuildSourceQuery<ConceptName>(id, versionSequenceId), Guid.Empty, 0, null, out tr, principal, false).ToList();
         }
     }
 }

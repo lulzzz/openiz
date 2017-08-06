@@ -1,4 +1,24 @@
-﻿using OizDevTool.Debugger;
+﻿/*
+ * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
+ *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
+ * the License.
+ * 
+ * User: justi
+ * Date: 2017-6-23
+ */
+using OizDevTool.Debugger;
+using OpenIZ.Core.Security;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -26,6 +46,7 @@ namespace OizDevTool
         /// </summary>
         public InteractiveBase()
         {
+            AuthenticationContext.Current = new AuthenticationContext(AuthenticationContext.AnonymousPrincipal);
         }
 
         /// <summary>
@@ -33,7 +54,10 @@ namespace OizDevTool
         /// </summary>
         protected ConsoleColor GetResponseColor()
         {
-            return this.m_promptColor != ConsoleColor.Blue ? ConsoleColor.Blue : ConsoleColor.Red;
+            if(Console.BackgroundColor == ConsoleColor.Black)
+                return Console.ForegroundColor != ConsoleColor.Cyan ? ConsoleColor.Cyan : ConsoleColor.Magenta;
+            else
+                return Console.ForegroundColor != ConsoleColor.Blue ? ConsoleColor.Blue : ConsoleColor.Red;
         }
 
         /// <summary>
@@ -41,7 +65,7 @@ namespace OizDevTool
         /// </summary>
         protected void Prompt()
         {
-            Console.ForegroundColor = this.m_promptColor;
+            Console.ResetColor();
             Console.Write(this.m_prompt);
         }
 
@@ -67,7 +91,7 @@ namespace OizDevTool
         {
 
             Console.CursorVisible = true;
-            Console.WriteLine("{0} for help use ?", this.GetType().GetCustomAttribute<DescriptionAttribute>()?.Description ?? this.GetType().Name);
+            Console.WriteLine("Ready...");
 
             var col = Console.ForegroundColor;
 
@@ -154,11 +178,20 @@ namespace OizDevTool
                 var itm = mi.GetCustomAttribute<CommandAttribute>();
                 if (itm == null || String.IsNullOrEmpty(itm.Description)) continue;
                 Console.Write("{0:2} {1}", itm.Command, String.Join(" ", mi.GetParameters().Select(o => $"[{o.Name}]")));
-                Console.WriteLine("{0}{1}", new String(' ', 40 - Console.CursorLeft), itm.Description);
+                Console.WriteLine("{0}{1}", new String(' ', 50 - Console.CursorLeft), itm.Description);
 
             }
         }
 
+        /// <summary>
+        /// Identifies current authentication principal
+        /// </summary>
+        [Command("whoami", "Identifies the current authentication principal")]
+        public void Whoami()
+        {
+            Console.WriteLine(AuthenticationContext.Current.Principal.Identity.Name);
+        }
+        
         /// <summary>
         /// Exit the debugger
         /// </summary>
@@ -166,7 +199,7 @@ namespace OizDevTool
         public virtual void Exit()
         {
             this.m_exitRequested = true;
-            Environment.Exit(0);
+            //Environment.Exit(0);
         }
 
 

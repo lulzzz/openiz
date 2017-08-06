@@ -1,23 +1,22 @@
 ﻿/*
  * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
  *
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you
- * may not use this file except in compliance with the License. You may
- * obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
  * the License.
- *
+ * 
  * User: justi
  * Date: 2016-8-2
  */
-
 using MARC.HI.EHRS.SVC.Core;
 using MARC.HI.EHRS.SVC.Core.Data;
 using MARC.HI.EHRS.SVC.Core.Services;
@@ -30,6 +29,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Security.Permissions;
+using System.Text.RegularExpressions;
 
 namespace OpenIZ.Core.Services.Impl
 {
@@ -167,13 +167,25 @@ namespace OpenIZ.Core.Services.Impl
 		[PolicyPermission(SecurityAction.Demand, PolicyId = PermissionPolicyIdentifiers.ReadMetadata)]
 		public IEnumerable<Concept> FindConceptsByReferenceTerm(string code, Uri codeSystem)
 		{
-			if (codeSystem.Scheme == "urn" && codeSystem.LocalPath.StartsWith("oid"))
+			if ((codeSystem.Scheme == "urn" || codeSystem.Scheme == "oid"))
 			{
-				string csOid = codeSystem.LocalPath.Substring(4);
-				return this.FindConcepts(o => o.ReferenceTerms.Any(r => r.ReferenceTerm.CodeSystem.Oid == csOid && r.ReferenceTerm.Mnemonic == code));
+				var csOid = codeSystem.LocalPath;
+                if (csOid.StartsWith("oid"))
+                {
+                    csOid = codeSystem.LocalPath.Substring(4);
+                    return this.FindConcepts(o => o.ReferenceTerms.Any(r => r.ReferenceTerm.CodeSystem.Oid == csOid && r.ReferenceTerm.Mnemonic == code));
+                }
 			}
 
 			return this.FindConcepts(o => o.ReferenceTerms.Any(r => r.ReferenceTerm.CodeSystem.Url == codeSystem.OriginalString && r.ReferenceTerm.Mnemonic == code));
+		}
+
+		/// <summary>
+		/// Find concepts by reference terms
+		/// </summary>
+		public IEnumerable<Concept> FindConceptsByReferenceTerm(string code, string codeSystemDomain)
+		{
+			return this.FindConcepts(o => o.ReferenceTerms.Any(r => r.ReferenceTerm.CodeSystem.Authority == codeSystemDomain && r.ReferenceTerm.Mnemonic == code));
 		}
 
 		/// <summary>
@@ -316,14 +328,18 @@ namespace OpenIZ.Core.Services.Impl
 
 			int tr;
 
-			var refTermEnt = refTermService.Query(o => (o.ReferenceTerm.CodeSystem.Url == codeSystem || o.ReferenceTerm.CodeSystem.Oid == codeSystem) && o.SourceEntityKey == conceptId, 0, 1, AuthenticationContext.Current.Principal, out tr).FirstOrDefault();
+            ConceptReferenceTerm refTermEnt = null;
 
-			if (refTermEnt?.ReferenceTermKey != null)
-			{
-				return refTermEnt.ReferenceTerm ?? this.GetReferenceTerm(refTermEnt.ReferenceTermKey.Value);
-			}
+            Regex oidRegex = new Regex("^(\\d+?\\.){1,}\\d+$");
+            Uri uri = null;
+            if (oidRegex.IsMatch(codeSystem))
+                refTermEnt = refTermService.Query(o => (o.ReferenceTerm.CodeSystem.Oid == codeSystem) && o.SourceEntityKey == conceptId, 0, 1, AuthenticationContext.Current.Principal, out tr).FirstOrDefault();
+            else if (Uri.TryCreate(codeSystem, UriKind.Absolute, out uri))
+                refTermEnt = refTermService.Query(o => (o.ReferenceTerm.CodeSystem.Url == codeSystem) && o.SourceEntityKey == conceptId, 0, 1, AuthenticationContext.Current.Principal, out tr).FirstOrDefault();
+            else
+                refTermEnt = refTermService.Query(o => (o.ReferenceTerm.CodeSystem.Authority == codeSystem) && o.SourceEntityKey == conceptId, 0, 1, AuthenticationContext.Current.Principal, out tr).FirstOrDefault();
 
-			return null;
+            return refTermEnt.LoadProperty<ReferenceTerm>("ReferenceTerm");
 		}
 
 		/// <summary>
@@ -730,5 +746,14 @@ namespace OpenIZ.Core.Services.Impl
 
 			return term;
 		}
-	}
+
+        /// <summary>
+        /// Find all code systems
+        /// </summary>
+        public IEnumerable<CodeSystem> FindCodeSystems(Expression<Func<CodeSystem, bool>> query)
+        {
+            int t = 0;
+            return this.Find<CodeSystem>(query, 0, null, out t, Guid.Empty);
+        }
+    }
 }
