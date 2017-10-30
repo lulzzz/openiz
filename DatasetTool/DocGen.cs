@@ -1,4 +1,23 @@
-﻿using MARC.HI.EHRS.SVC.Core;
+﻿/*
+ * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
+ *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
+ * the License.
+ * 
+ * User: fyfej
+ * Date: 2017-8-3
+ */
+using MARC.HI.EHRS.SVC.Core;
 using MohawkCollege.Util.Console.Parameters;
 using OpenIZ.Core;
 using OpenIZ.Core.Model.DataTypes;
@@ -138,6 +157,13 @@ namespace OizDevTool
 
             Assembly loadedAssembly = Assembly.LoadFile(parms.Assembly);
             var type = loadedAssembly.ExportedTypes.FirstOrDefault(o => o.Name == parms.Contract && o.IsInterface);
+            if(type == null)
+            {
+                Console.WriteLine("Could not find contract: {0}\r\nAvailable Interfaces:", parms.Contract);
+                foreach (var v in loadedAssembly.ExportedTypes.Where(o => o.IsInterface).Select(o => o.Name))
+                    Console.WriteLine("\t{0}", v);
+                return;
+            }
             var xmlDoc = new XmlDocument();
             xmlDoc.Load(parms.XmlDocFile ?? Path.ChangeExtension(parms.Assembly, "xml"));
 
@@ -254,6 +280,7 @@ namespace OizDevTool
         /// </summary>
         private static void CreateAssemblyDoc(XmlSchemaSimpleType xmlSchemaSimpleType, Type type, XmlDocument xmlDoc)
         {
+            Console.WriteLine("Generating {0}...", xmlSchemaSimpleType.Name);
 
 
 
@@ -264,6 +291,8 @@ namespace OizDevTool
         /// </summary>
         private static void CreateAssemblyDoc(XmlSchemaComplexType schemaType, Type type, XmlDocument docComments)
         {
+            Console.WriteLine("Generating {0}...", schemaType.Name);
+
             if (type == null) return;
             var typeDoc = docComments.SelectSingleNode(String.Format("//*[local-name() = 'member'][@name = 'T:{0}']", type.FullName));
             if (typeDoc == null) return;

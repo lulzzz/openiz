@@ -334,7 +334,7 @@ namespace OizDevTool
         /// <summary>
         /// Map substance administration
         /// </summary>
-        private static List<SubstanceAdministration> MapSubstanceAdministrations(Patient patient, Child child)
+        private static List<SubstanceAdministration> MapSubstanceAdministrations(Patient patient, Child child, int defaultFacilityId)
         {
 
             return VaccinationEvent.GetChildVaccinationEvent(child.Id).Where(o => o.NonvaccinationReasonId != 0 || o.VaccinationStatus).AsParallel().Select(o =>
@@ -369,7 +369,10 @@ namespace OizDevTool
                     if (o.NonvaccinationReasonId > 0 && !nonVaccinationReasonMap.ContainsKey(o.NonVaccinationReason.Code))
                         throw new KeyNotFoundException($"NullReason - ?>> {o.NonVaccinationReason.Code}");
                     if (!facilityMap.ContainsKey(o.HealthFacilityId))
-                        throw new KeyNotFoundException($"Place - ?>> {o.HealthFacilityId}");
+                    {
+                        Console.WriteLine($"WARN: {o.HealthFacilityId} ({o.HealthFacility.Name}) not found using {defaultFacilityId} instead");
+                        o.HealthFacilityId = defaultFacilityId;
+                    }
 
                     var retVal = new SubstanceAdministration()
                     {
@@ -384,10 +387,10 @@ namespace OizDevTool
                         IsNegated = o.NonvaccinationReasonId != 0,
                         ReasonConceptKey = o.NonvaccinationReasonId > 0 ? (Guid?)nonVaccinationReasonMap[o.NonVaccinationReason.Code] : null,
                         MoodConceptKey = ActMoodKeys.Eventoccurrence,
-                        SequenceId = o.Dose?.Fullname == "BCG" ? 0 : ( o.Dose?.DoseNumber ?? 0),
+                        SequenceId = o.Dose?.Fullname == "BCG" ? 0 : (o.Dose?.DoseNumber ?? 0),
                         TypeConceptKey = Guid.Parse("6e7a3521-2967-4c0a-80ec-6c5c197b2178"),
                         RouteKey = NullReasonKeys.NoInformation,
-                        DoseUnitKey = Guid.Parse("A77B8D83-1CC9-4806-A268-5D1738154AFA"),
+                        DoseUnitKey = Guid.Parse("a4fc5c93-31c2-4f87-990e-c5a4e5ea2e76"),
                         Participations = new List<ActParticipation>()
                 {
                     new ActParticipation(ActParticipationKey.Location, facilityMap[o.HealthFacilityId]),
@@ -566,6 +569,10 @@ namespace OizDevTool
                 facilityMap.Add(hf.Id, id);
 
             var hfcd = HealthFacilityCohortData.GetHealthFacilityCohortDataByHealthFacilityId(hf.Id);
+
+            Guid hfType = Guid.Empty;
+            if (!facilityTypeId.TryGetValue(hf.TypeId, out hfType))
+                throw new InvalidOperationException(String.Format("Cannot map facility type {0} ({1}) to OpenIZ", hf.TypeId, hf.Type.Name));
             // Core construction of place
             var retVal = new OpenIZ.Core.Model.Entities.Place()
             {
@@ -578,7 +585,7 @@ namespace OizDevTool
                     new OpenIZ.Core.Model.DataTypes.EntityIdentifier(new AssigningAuthority("GIIS_FACID", "GIIS Facility Identifiers", "1.3.6.1.4.1.<<YOUR.PEN>>.9"), hf.Id.ToString()),
                     new OpenIZ.Core.Model.DataTypes.EntityIdentifier(new AssigningAuthority("HIE_FRID", "Facility Register Identifiers", "1.3.6.1.4.1.<<YOUR.PEN>>.10"), hf.Code)
                 },
-                StatusConceptKey = hf.IsActive ? StatusKeys.Active : StatusKeys.Nullified,
+                StatusConceptKey = hf.IsActive ? StatusKeys.Active : StatusKeys.Obsolete,
                 Extensions = new List<EntityExtension>()
                 {
                     new EntityExtension() {
@@ -628,24 +635,37 @@ namespace OizDevTool
 
             foreach (var itm in HealthFacilityBalance.GetHealthFacilityBalanceByHealthFacility(hf.Id))
             {
-                var stockPolicy = GtinHfStockPolicy.GetGtinHfStockPolicyByHealthFacilityCodeAndGtin(hf.Code, itm.Gtin);
-
-                // first add stock relationship
-                var itml = ItemLot.GetItemLotByGtinAndLotNo(itm.Gtin, itm.LotNumber);
-                var mat = materialMap[itml.ItemObject.Code];
-                var mmat = manufacturedMaterialMap[itml.Id];
-                if (itml.ExpireDate < DateTime.Now)
-                    continue;
-
-                retVal.Relationships.Add(new EntityRelationship(EntityRelationshipTypeKeys.OwnedEntity, mmat) { Quantity = (int)0 });
-                stockPolicyObject.Add(new
+                try
                 {
-                    MaterialEntityId = mat,
-                    ReorderQuantity = stockPolicy?.ReorderQty,
-                    SafetyQuantity = stockPolicy?.SafetyStock,
-                    AMC = 0,
-                    Multiplier = 1
-                });
+                    var stockPolicy = GtinHfStockPolicy.GetGtinHfStockPolicyByHealthFacilityCodeAndGtin(hf.Code, itm.Gtin);
+
+                    // first add stock relationship
+                    var itml = ItemLot.GetItemLotByGtinAndLotNo(itm.Gtin, itm.LotNumber);
+
+                    if (!materialMap.ContainsKey(itml.ItemObject.Code))
+                        throw new InvalidOperationException($"Could not find {itml.ItemObject.Code} in dictionary");
+                    if (!manufacturedMaterialMap.ContainsKey(itml.Id))
+                        throw new InvalidOperationException($"Could not find manufactured material ${itml.Id}");
+
+                    var mat = materialMap[itml.ItemObject.Code];
+                    var mmat = manufacturedMaterialMap[itml.Id];
+                    if (itml.ExpireDate < DateTime.Now)
+                        continue;
+
+                    retVal.Relationships.Add(new EntityRelationship(EntityRelationshipTypeKeys.OwnedEntity, mmat) { Quantity = (int)0 });
+                    stockPolicyObject.Add(new
+                    {
+                        MaterialEntityId = mat,
+                        ReorderQuantity = stockPolicy?.ReorderQty,
+                        SafetyQuantity = stockPolicy?.SafetyStock,
+                        AMC = 0,
+                        Multiplier = 1
+                    });
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Skipping invalid stock balance: {0}", e.Message);
+                }
             }
 
             // Entity extension
@@ -821,8 +841,8 @@ namespace OizDevTool
             Console.WriteLine("Map OpenIZ Users...");
             userEntityMap = User.GetUserList().ToDictionary(o => o.Id, o => uePersister.Query(u => u.SecurityUser.UserName == o.Username, AuthenticationContext.AnonymousPrincipal).FirstOrDefault()?.Key.Value ?? Guid.Empty);
 
-            GT_MALE = conceptPersister.Query(o => o.Mnemonic.Contains("male"), AuthenticationContext.SystemPrincipal).FirstOrDefault().Key.Value;
-            GT_FEMALE = conceptPersister.Query(o => o.Mnemonic.Contains("male"), AuthenticationContext.SystemPrincipal).FirstOrDefault().Key.Value;
+            GT_MALE = conceptPersister.Query(o => o.Mnemonic == "Male", AuthenticationContext.SystemPrincipal).FirstOrDefault().Key.Value;
+            GT_FEMALE = conceptPersister.Query(o => o.Mnemonic == "Female", AuthenticationContext.SystemPrincipal).FirstOrDefault().Key.Value;
 
             // Load materials and places
             //var pfacilities = facilities.ToDictionary(o => Int32.Parse(o.Identifiers.First(i => i.Authority.DomainName == "GIIS_FACID").Value), o => o.Key.Value);
@@ -830,7 +850,20 @@ namespace OizDevTool
             Console.WriteLine("Map OpenIZ Places...");
             placeEntityMap = places.Where(o => o.Identifiers.Any(i => i.Authority.DomainName == "GIIS_PLCID")).ToDictionary(o => Int32.Parse(o.Identifiers.First(i => i.Authority.DomainName == "GIIS_PLCID").Value), o => o.Key.Value);
             facilityMap = facilities.Where(o => o.Identifiers.Any(i => i.Authority.DomainName == "GIIS_FACID")).ToDictionary(o => Int32.Parse(o.Identifiers.First(i => i.Authority.DomainName == "GIIS_FACID").Value), o => o.Key.Value);
-            facilityTypeId = conceptPersister.Query(o => o.ConceptSets.Any(c => c.Mnemonic == "HealthFacilityTypes"), AuthenticationContext.SystemPrincipal).Where(o=> HealthFacilityType.GetHealthFacilityTypeList().Any(f => o.Mnemonic.EndsWith(f.Name.Replace(" ", "")))).ToDictionary(o => HealthFacilityType.GetHealthFacilityTypeList().First(f => o.Mnemonic.EndsWith(f.Name.Replace(" ", ""))).Id, o => o.Key.Value);
+
+            foreach (var giisHf in HealthFacility.GetHealthFacilityList())
+            {
+                if (!facilityMap.ContainsKey(giisHf.Id))
+                {
+                    var itm = (placePersister as IFastQueryDataPersistenceService<OpenIZ.Core.Model.Entities.Place>).QueryFast(o => o.Identifiers.Any(i => i.Authority.DomainName == "HIE_FRID" && i.Value == giisHf.Code), Guid.Empty, 0, 1, AuthenticationContext.SystemPrincipal, out tr).FirstOrDefault();
+                    if (itm != null)
+                    {
+                        Console.WriteLine("Using HFR Map for {0}>{1}", giisHf.Name, itm.Names.FirstOrDefault()?.ToString());
+                        facilityMap.Add(giisHf.Id, itm.Key.Value);
+                    }
+                }
+            }
+            facilityTypeId = conceptPersister.Query(o => o.ConceptSets.Any(c => c.Mnemonic == "HealthFacilityTypes"), AuthenticationContext.SystemPrincipal).Where(o => HealthFacilityType.GetHealthFacilityTypeList().Any(f => o.Mnemonic.EndsWith(f.Name.Replace(" ", "").Replace("Center", "Centre")))).ToDictionary(o => HealthFacilityType.GetHealthFacilityTypeList().First(f => o.Mnemonic.EndsWith(f.Name.Replace(" ", "").Replace("Center", "Centre"))).Id, o => o.Key.Value);
 
 #if DEBUG
             Console.WriteLine("Will use the following map for Health Facility Types");
@@ -879,9 +912,9 @@ namespace OizDevTool
                 var children = Child.GetChildByHealthFacilityId(giisHf.Id);
 
                 var dbFacility = placePersister.Query(o => o.Identifiers.Any(i => i.Value == facId && i.Authority.DomainName == "GIIS_FACID"), AuthenticationContext.AnonymousPrincipal).FirstOrDefault();
-                
+
                 // Confirm creation
-                if(dbFacility == null && parms.ConfirmCreate)
+                if (dbFacility == null && parms.ConfirmCreate)
                 {
                     Console.WriteLine("Facility with GIIS_FACID #{0} not found", facId);
                     var createUpdate = Prompt("Do you want to (c)reate a new facility or (f)ind another or (a)bort?", new string[] { "c", "f", "a" });
@@ -912,7 +945,7 @@ namespace OizDevTool
                     // Clear and update
                     dbFacility.Relationships.RemoveAll(o => o.RelationshipTypeKey == EntityRelationshipTypeKeys.OwnedEntity);
                     var bkup = MapFacility(giisHf);
-                    dbFacility.Relationships.AddRange(bkup.Relationships.Where(o=>o.RelationshipTypeKey == EntityRelationshipTypeKeys.OwnedEntity));
+                    dbFacility.Relationships.AddRange(bkup.Relationships.Where(o => o.RelationshipTypeKey == EntityRelationshipTypeKeys.OwnedEntity));
                     dbFacility.Extensions = bkup.Extensions;
 
                     // Insert
@@ -945,31 +978,38 @@ namespace OizDevTool
                     var chld = children[i];
 
                     // Child exists?
-                    if (patientPersister.Count(o => o.Identifiers.Any(n => n.Authority.DomainName == "GIIS_CHILD" && n.Value == chld.Id.ToString()), AuthenticationContext.SystemPrincipal) > 0)
+                    var existing = patientPersister.Query(o => o.Identifiers.Any(n => n.Authority.DomainName == "GIIS_CHILD" && n.Value == chld.Id.ToString()), AuthenticationContext.SystemPrincipal).FirstOrDefault();
+                    List<IdentifiedData> childData = new List<IdentifiedData>();
+                    var dbChild = MapChild(chld, parms);
+                    if (existing != null)
                     {
-                        Console.WriteLine("Child ID # {0} was previously imported, skipping this child. Please manually reconcile this record if desired.", chld.Id);
-                        continue;
+                        dbChild.Key = existing.Key;
+                        dbChild.Relationships = existing.Relationships;
+                        childData.Add(dbChild);
+
+                        Console.WriteLine("Child ID # {0} was previously imported, Updating core information only", chld.Id);
+                    }
+                    else
+                    {
+
+                        float pdone = (i + 1) / (float)children.Count;
+
+                        int bdone = (int)(pdone * (Console.WindowWidth - 55) / 2);
+                        Console.CursorLeft = 2;
+                        Console.Write("Child: {0} > {1} [{2}{3}] [{4:#0}% - ETA:{5}] ", chld.Id, dbChild.Key.ToString().Substring(0, 6),
+                            Console.WindowWidth - 55 > 2 ? new String('=', bdone) : "",
+                            Console.WindowWidth - 55 > 2 ? new String(' ', (int)(((Console.WindowWidth - 55) / 2) - bdone)) : "",
+                            pdone * 100, remaining.ToString("mm'm 'ss's'"));
+
+
+                        childData.AddRange(dbChild.Relationships.Where(o => o.TargetEntity != null).Select(o => o.TargetEntity));
+                        childData.Add(dbChild);
+                        childData.AddRange(MapSubstanceAdministrations(dbChild, chld, giisHf.Id));
+                        childData.AddRange(MapWeights(dbChild, chld));
                     }
 
-                    var dbChild = MapChild(chld, parms);
-                    float pdone = (i + 1) / (float)children.Count;
-
-                    int bdone = (int)(pdone * (Console.WindowWidth - 55) / 2);
-                    Console.CursorLeft = 2;
-                    Console.Write("Child: {0} > {1} [{2}{3}] [{4:#0}% - ETA:{5}] ", chld.Id, dbChild.Key.ToString().Substring(0, 6),
-                        Console.WindowWidth - 55 > 2 ? new String('=', bdone) : "",
-                        Console.WindowWidth - 55 > 2 ? new String(' ', (int)(((Console.WindowWidth - 55) / 2) - bdone)) : "",
-                        pdone * 100, remaining.ToString("mm'm 'ss's'"));
-
-
-                    List<IdentifiedData> childData = new List<IdentifiedData>();
-                    childData.AddRange(dbChild.Relationships.Where(o => o.TargetEntity != null).Select(o => o.TargetEntity));
-                    childData.Add(dbChild);
-                    childData.AddRange(MapSubstanceAdministrations(dbChild, chld));
-                    childData.AddRange(MapWeights(dbChild, chld));
-
                     if (!parms.LiveMigration || parms.SingleTransaction)
-                        resultSet.Action.AddRange(childData.Select(o => new DataInsert() { Element = o }));
+                        resultSet.Action.AddRange(childData.Select(o => new DataInsert() { Element = o, SkipIfExists = true, IgnoreErrors = true }));
                     else
                     {
                         bundlePersister.Insert(new Bundle() { Item = childData }, AuthenticationContext.SystemPrincipal, TransactionMode.Commit);
@@ -980,7 +1020,7 @@ namespace OizDevTool
 
                 if (parms.SingleTransaction)
                 {
-                    Bundle b = new Bundle() { Item = resultSet.Action.Where(o=>o.Element != null).Select(o => o.Element).ToList() };
+                    Bundle b = new Bundle() { Item = resultSet.Action.Where(o => o.Element != null).Select(o => o.Element).ToList() };
                     Console.WriteLine("Will live insert {0} items", b.Item.Count());
                     start = DateTime.Now;
                     remaining = TimeSpan.MaxValue;
@@ -1057,7 +1097,7 @@ namespace OizDevTool
             name = name.Split(' ')[0];
 
             var placeService = ApplicationContext.Current.GetService<IDataPersistenceService<OpenIZ.Core.Model.Entities.Place>>();
-            while(retVal == null)
+            while (retVal == null)
             {
                 Console.WriteLine("Candidates matching: *{0}*", name);
                 Console.WriteLine("======================{0}=", new String('=', name.Length));
@@ -1068,7 +1108,7 @@ namespace OizDevTool
                         p.LoadProperty<Concept>("TypeConcept").ToDisplay(),
                         p.LoadCollection<EntityAddress>("Addresses").FirstOrDefault().ToDisplay());
 
-                String[] options = Enumerable.Repeat(1, optNum).Select(o=>o.ToString()).ToArray();
+                String[] options = Enumerable.Repeat(1, optNum).Select(o => o.ToString()).ToArray();
                 var option = Prompt("Match Facility # or (s)earch for another or (a)bort:", options.Union(new String[] { "s", "a" }).ToArray());
                 if (option == "s")
                 {
@@ -1118,9 +1158,9 @@ namespace OizDevTool
             DBManager.ExecuteNonQueryCommand("UPDATE \"CHILD_WEIGHT\" SET \"MODIFIED_ON\" = CURRENT_TIMESTAMP, \"MODIFIED_BY\" = 1 WHERE \"MODIFIED_ON\" = '-infinity'", System.Data.CommandType.Text, new List<Npgsql.NpgsqlParameter>());
 
             var parms = new ParameterParser<FacilitySearchParameters>().Parse(args);
-            Console.WriteLine("FID\tNAME{0}CHILD#", new String(' ', 36));
+            Console.WriteLine("FID\tPARENT\tNAME{0}CHILD#", new String(' ', 36));
             foreach (var itm in HealthFacility.GetHealthFacilityList().Where(o => o.Name.Contains(parms.FacilityName)))
-                Console.WriteLine("{0}\t{1}{2}{3}", itm.Id, itm.Name, new String(' ', 40 - itm.Name.Length), Child.GetChildByHealthFacilityId(itm.Id).Count);
+                Console.WriteLine("{0}\t{4}\t{1}{2}{3}", itm.Id, itm.Name, new String(' ', 40 - itm.Name.Length), Child.GetChildByHealthFacilityId(itm.Id).Count, itm.ParentId);
         }
 
         /// <summary>
@@ -1326,7 +1366,7 @@ namespace OizDevTool
             (healthFacilityTypes.Element as ConceptSet).ConceptsXml = healthFacilityTypes.Association.Select(o => o.Element.Key.Value).ToList();
             (placeTypes.Element as ConceptSet).ConceptsXml = placeTypes.Association.Select(o => o.Element.Key.Value).ToList();
             conceptDataset.Action.AddRange(healthFacilityTypes.Association.Select(o => new DataUpdate() { InsertIfNotExists = true, Element = o.Element }));
-            conceptDataset.Action.AddRange(placeTypes.Association.Select(o => new DataUpdate() { InsertIfNotExists = true,  Element = o.Element }));
+            conceptDataset.Action.AddRange(placeTypes.Association.Select(o => new DataUpdate() { InsertIfNotExists = true, Element = o.Element }));
             healthFacilityTypes.Association.Clear();
             placeTypes.Association.Clear();
             conceptDataset.Action.Add(healthFacilityTypes);

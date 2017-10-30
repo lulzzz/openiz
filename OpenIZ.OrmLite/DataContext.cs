@@ -222,11 +222,12 @@ namespace OpenIZ.OrmLite
         /// </summary>
         public void Dispose()
         {
-            foreach (var itm in this.m_preparedCommands.Values)
-                itm.Dispose();
-            this.m_cacheCommit.Clear();
+            if(this.m_preparedCommands != null)
+                foreach (var itm in this.m_preparedCommands.Values)
+                    itm?.Dispose();
+            this.m_cacheCommit?.Clear();
             this.m_cacheCommit = null;
-            this.m_cachedQuery.Clear();
+            this.m_cachedQuery?.Clear();
             this.m_cachedQuery = null;
             this.m_transaction?.Dispose();
             this.m_connection?.Dispose();
@@ -305,7 +306,10 @@ namespace OpenIZ.OrmLite
             {
                 var pIndex = sql.IndexOf("?");
                 retVal.Remove(pIndex, 1);
-                retVal.Insert(pIndex, qList[parmId++]);
+                var obj = qList[parmId++];
+                if (obj is String || obj is Guid || obj is Guid? || obj is DateTime || obj is DateTimeOffset)
+                    obj = $"'{obj}'";
+                retVal.Insert(pIndex, obj);
                 sql = retVal.ToString();
             }
             return retVal.ToString();

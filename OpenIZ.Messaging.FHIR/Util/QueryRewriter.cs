@@ -79,11 +79,21 @@ namespace OpenIZ.Messaging.FHIR.Util
         /// </summary>
         static QueryRewriter()
         {
-            using (Stream s = typeof(QueryRewriter).Assembly.GetManifestResourceStream("OpenIZ.Messaging.FHIR.ParameterMap.xml"))
-            {
+            Stream s = null;
+            try {
+                var externMap = Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "ParameterMap.Fhir.xml");
+                if (File.Exists(externMap))
+                    s = File.OpenRead(externMap);
+                else
+                    s = typeof(QueryRewriter).Assembly.GetManifestResourceStream("OpenIZ.Messaging.FHIR.ParameterMap.xml");
                 XmlSerializer xsz = new XmlSerializer(typeof(QueryParameterMap));
                 s_map = xsz.Deserialize(s) as QueryParameterMap;
                 s_default = s_map.Map.FirstOrDefault(o => o.SourceType == typeof(ResourceBase));
+            }
+            finally
+            {
+                s?.Close();
+                s?.Dispose();
             }
         }
 
@@ -104,10 +114,7 @@ namespace OpenIZ.Messaging.FHIR.Util
             if (!Int32.TryParse(fhirQuery["_offset"] ?? "0", out offset))
                 throw new ArgumentException("_offset");
             if (fhirQuery["_page"] != null && Int32.TryParse(fhirQuery["_page"], out page))
-            {
                 offset = page * count;
-                count = 100;
-            }
 
             Guid queryId = Guid.Empty;
             if (fhirQuery["_stateid"] != null)
@@ -135,10 +142,20 @@ namespace OpenIZ.Messaging.FHIR.Util
             {
 
                 List<String> value = new List<string>(fhirQuery.GetValues(kv).Length);
+
+                // Is the name extension?
                 var parmMap = map?.Map.FirstOrDefault(o => o.FhirName == kv);
                 if (parmMap == null)
                     parmMap = s_default.Map.FirstOrDefault(o => o.FhirName == kv);
-                if(parmMap == null) continue;
+                if (parmMap == null && kv == "extension")
+                    parmMap = new QueryParameterMapProperty()
+                    {
+                        FhirName = "extension",
+                        ModelName = "extension",
+                        FhirType = "tag"
+                    };
+                else if(parmMap == null)
+                    continue;
 
                 foreach (var v in fhirQuery.GetValues(kv))
                 {
@@ -209,14 +226,41 @@ namespace OpenIZ.Messaging.FHIR.Util
                             {
                                 var segs = itm.Split('|');
 
-                                var refTerm = ApplicationContext.Current.GetService<IConceptRepositoryService>().FindConceptsByReferenceTerm(segs[1], segs[0]).FirstOrDefault();
-                                if(refTerm != null)
-                                    imsiQuery.Add(String.Format("{0}.referenceTerm[{1}].term.mnemonic", parmMap.ModelName, refTerm.LoadProperty<CodeSystem>("CodeSystem").Authority), refTerm.Mnemonic);
+                                string codeSystemUri = segs[0];
+                                CodeSystem codeSystem = null;
+
+                                if (codeSystemUri.StartsWith("urn:oid:"))
+                                {
+                                    codeSystemUri = codeSystemUri.Substring(8);
+                                    codeSystem = ApplicationContext.Current.GetService<IConceptRepositoryService>().FindCodeSystems(o => o.Oid == codeSystemUri ).FirstOrDefault();
+                                }
+                                else if (codeSystemUri.StartsWith("urn:") || codeSystemUri.StartsWith("http:"))
+                                    codeSystem = ApplicationContext.Current.GetService<IConceptRepositoryService>().FindCodeSystems(o => o.Url == codeSystemUri).FirstOrDefault();
+                                else
+                                    codeSystem = ApplicationContext.Current.GetService<IConceptRepositoryService>().FindCodeSystems(o => o.Name == codeSystemUri).FirstOrDefault();
+
+
+                                s_tracer.TraceInformation("Have translated FHIR domain {0} to {1}", codeSystemUri, codeSystem?.Name);
+
+                                if (codeSystem != null)
+                                    imsiQuery.Add(String.Format("{0}.referenceTerm[{1}].term.mnemonic", parmMap.ModelName, codeSystem.Name), segs[1]);
                                 else
                                     imsiQuery.Add(String.Format("{0}.mnemonic", parmMap.ModelName), segs[1]);
                             }
                             else
                                 imsiQuery.Add(parmMap.ModelName + ".referenceTerm.term.mnemonic", itm);
+                        }
+                        break;
+                    case "reference":
+                        foreach (var itm in value)
+                        {
+                            if (itm.Contains("/"))
+                            {
+                                var segs = itm.Split('/');
+                                imsiQuery.Add(parmMap.ModelName, segs[1]);
+                            }
+                            else
+                                imsiQuery.Add(parmMap.ModelName, itm);
                         }
                         break;
                     case "tag":

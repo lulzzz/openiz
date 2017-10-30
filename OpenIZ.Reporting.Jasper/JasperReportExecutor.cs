@@ -1,65 +1,60 @@
 ﻿/*
  * Copyright 2015-2017 Mohawk College of Applied Arts and Technology
  *
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
- * User: justi
+ *
+ * User: khannan
  * Date: 2017-4-7
  */
+
 using MARC.HI.EHRS.SVC.Core;
 using MARC.HI.EHRS.SVC.Core.Data;
 using MARC.HI.EHRS.SVC.Core.Services;
-using OpenIZ.Core.Model.RISI;
-using OpenIZ.Core.Security;
-using OpenIZ.Reporting.Core;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Diagnostics.Tracing;
-using System.Dynamic;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Net.NetworkInformation;
-using System.Security.AccessControl;
-using System.Security.Authentication;
-using System.Security.Permissions;
-using System.Security.Principal;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Serialization;
-using OpenIZ.Core.Diagnostics;
-using OpenIZ.Core.Security.Attribute;
-using OpenIZ.Reporting.Core.Auth;
-using OpenIZ.Reporting.Core.Configuration;
-using OpenIZ.Reporting.Core.Event;
-using OpenIZ.Reporting.Jasper.Model;
-using OpenIZ.Reporting.Jasper.Model.Core;
-using OpenIZ.Reporting.Jasper.Model.Reference;
-using ReportParameter = OpenIZ.Core.Model.RISI.ReportParameter;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.IO;
-using System.Reflection;
 using OpenIZ.Core;
-using OpenIZ.Core.Data.Warehouse;
 using OpenIZ.Core.Model;
 using OpenIZ.Core.Model.Constants;
 using OpenIZ.Core.Model.DataTypes;
 using OpenIZ.Core.Model.Entities;
+using OpenIZ.Core.Model.RISI;
 using OpenIZ.Core.Model.RISI.Constants;
+using OpenIZ.Core.Security;
+using OpenIZ.Core.Security.Attribute;
 using OpenIZ.Core.Services;
+using OpenIZ.Reporting.Core;
+using OpenIZ.Reporting.Core.Auth;
+using OpenIZ.Reporting.Core.Configuration;
+using OpenIZ.Reporting.Core.Event;
+using OpenIZ.Reporting.Jasper.Model;
 using OpenIZ.Reporting.Jasper.Model.Collection;
+using OpenIZ.Reporting.Jasper.Model.Core;
+using OpenIZ.Reporting.Jasper.Model.Reference;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Dynamic;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.Security.Authentication;
+using System.Security.Claims;
+using System.Security.Permissions;
+using System.Text;
+using System.Xml.Serialization;
+using OpenIZ.Reporting.Jasper.Configuration;
+using ReportParameter = OpenIZ.Core.Model.RISI.ReportParameter;
 
 namespace OpenIZ.Reporting.Jasper
 {
@@ -69,6 +64,42 @@ namespace OpenIZ.Reporting.Jasper
 	[Service(ServiceInstantiationType.Instance)]
 	public class JasperReportExecutor : IReportExecutor, ISupportBasicAuthentication
 	{
+		/// <summary>
+		/// The jasper authentication path.
+		/// </summary>
+		private const string JasperAuthenticationPath = "/rest/login";
+
+		/// <summary>
+		/// The jasper cookie key.
+		/// </summary>
+		private const string JasperCookieKey = "JSESSIONID";
+
+		/// <summary>
+		/// The jasper resources path.
+		/// </summary>
+		private const string JasperResourcesPath = "/rest_v2/resources";
+
+		/// <summary>
+		/// The folder path.
+		/// </summary>
+		private readonly string FolderPath;
+
+		/// <summary>
+		/// The configuration.
+		/// </summary>
+		// HACK: this should actually say 'openiz.reporting.jasper' not 'openiz.reporting.core'
+		private static readonly ReportingConfiguration configuration = ApplicationContext.Current.GetService<IConfigurationManager>().GetSection("openiz.reporting.core") as ReportingConfiguration;
+
+		/// <summary>
+		/// The jasper configuration.
+		/// </summary>
+		private static readonly JasperConfiguration JasperConfiguration = ApplicationContext.Current.GetService<IConfigurationManager>().GetSection("openiz.reporting.jasper") as JasperConfiguration;
+
+		/// <summary>
+		/// The jasper report path.
+		/// </summary>
+		private static readonly string JasperReportPath = "/rest_v2/reports";
+
 		/// <summary>
 		/// The internal reference to the <see cref="HttpClient"/> instance.
 		/// </summary>
@@ -80,30 +111,9 @@ namespace OpenIZ.Reporting.Jasper
 		private readonly CookieContainer cookieContainer;
 
 		/// <summary>
-		/// The configuration.
+		/// The password.
 		/// </summary>
-		// HACK: this should actually say 'openiz.reporting.jasper' not 'openiz.reporting.core'
-		private static readonly ReportingConfiguration configuration = ApplicationContext.Current.GetService<IConfigurationManager>().GetSection("openiz.reporting.core") as ReportingConfiguration;
-
-		/// <summary>
-		/// The jasper authentication path.
-		/// </summary>
-		private const string JasperAuthenticationPath = "/rest/login";
-
-		/// <summary>
-		/// The jasper report path.
-		/// </summary>
-		private static readonly string JasperReportPath = "/rest_v2/reports";
-
-		/// <summary>
-		/// The jasper resources path.
-		/// </summary>
-		private const string JasperResourcesPath = "/rest_v2/resources";
-
-		/// <summary>
-		/// The jasper cookie key.
-		/// </summary>
-		private const string JasperCookieKey = "JSESSIONID";
+		private readonly string password;
 
 		/// <summary>
 		/// The internal reference to the trace source.
@@ -116,22 +126,9 @@ namespace OpenIZ.Reporting.Jasper
 		private readonly string username;
 
 		/// <summary>
-		/// The password.
+		/// The user identifier key for sending the user id to Jasper Reports.
 		/// </summary>
-		private readonly string password;
-
-		/// <summary>
-		/// Occurs when a service is authenticated.
-		/// </summary>
-		public event EventHandler<AuthenticatedEventArgs> Authenticated;
-		/// <summary>
-		/// Occurs when a service is authenticating.
-		/// </summary>
-		public event EventHandler<AuthenticatingEventArgs> Authenticating;
-		/// <summary>
-		/// Occurs when a service fails authentication.
-		/// </summary>
-		public event EventHandler<AuthenticationErrorEventArgs> OnAuthenticationError;
+		private const string UserIdKey = "Userid";
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="JasperReportExecutor" /> class.
@@ -160,7 +157,23 @@ namespace OpenIZ.Reporting.Jasper
 
 			this.Authenticated += OnAuthenticated;
 			this.ReportUri = new Uri(this.Configuration.Address);
+			this.FolderPath = JasperConfiguration.ReportPath;
 		}
+
+		/// <summary>
+		/// Occurs when a service is authenticated.
+		/// </summary>
+		public event EventHandler<AuthenticatedEventArgs> Authenticated;
+
+		/// <summary>
+		/// Occurs when a service is authenticating.
+		/// </summary>
+		public event EventHandler<AuthenticatingEventArgs> Authenticating;
+
+		/// <summary>
+		/// Occurs when a service fails authentication.
+		/// </summary>
+		public event EventHandler<AuthenticationErrorEventArgs> OnAuthenticationError;
 
 		/// <summary>
 		/// Gets or sets the authentication result of the authentication handler.
@@ -406,7 +419,9 @@ namespace OpenIZ.Reporting.Jasper
 
 			this.Authenticate(this.username, this.password);
 
-			var reportUnit = this.LookupResource<ReportUnit>(reportDefinition.CorrelationId);
+			var userId = OpenIZ.Core.ExtensionMethods.GetUserId(AuthenticationContext.Current.Principal.Identity);
+
+			var reportUnit = this.LookupResource<ReportUnit>(reportDefinition.CorrelationId, new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>(UserIdKey, Guid.Parse(userId).ToString())});
 
 			var count = 0;
 
@@ -420,9 +435,16 @@ namespace OpenIZ.Reporting.Jasper
 					Description = inputControl.Description,
 					ReportDefinition = reportDefinition,
 					Name = inputControl.Label,
+					IsHidden = !inputControl.Visible,
 					IsNullable = inputControl.Mandatory,
-					ReportDefinitionKey = reportDefinition.Key.Value
+					ReportDefinitionKey = reportDefinition.Key.Value,
 				};
+
+				// if the parameter is the user id, set the user id value as the current user id
+				if (reportParameter.Name == UserIdKey)
+				{
+					reportParameter.Value = Guid.Parse(OpenIZ.Core.ExtensionMethods.GetUserId(AuthenticationContext.Current.Principal.Identity)).ToByteArray();
+				}
 
 				if (inputControl.DataType != null)
 				{
@@ -436,6 +458,7 @@ namespace OpenIZ.Reporting.Jasper
 								SystemTypeXml = typeof(string).AssemblyQualifiedName
 							};
 							break;
+
 						case "date":
 						case "datetime":
 							reportParameter.ParameterType = new ParameterType(ParameterTypeKeys.DateTime)
@@ -443,6 +466,7 @@ namespace OpenIZ.Reporting.Jasper
 								SystemTypeXml = typeof(DateTime).AssemblyQualifiedName
 							};
 							break;
+
 						case "number":
 							reportParameter.ParameterType = new ParameterType(ParameterTypeKeys.Integer)
 							{
@@ -469,6 +493,18 @@ namespace OpenIZ.Reporting.Jasper
 
 					try
 					{
+						// set the user id
+						if (query.Value.Contains("${Userid}") || query.Value.Contains("$P{Userid}"))
+						{
+							var securityUserId = Guid.Parse(OpenIZ.Core.ExtensionMethods.GetUserId(AuthenticationContext.Current.Principal.Identity));
+
+							var totalCount = 0;
+
+							var userEntityId = ApplicationContext.Current.GetService<IDataPersistenceService<UserEntity>>().Query(c => c.SecurityUserKey == securityUserId, 0, 1, AuthenticationContext.Current.Principal, out totalCount)?.FirstOrDefault()?.Key;
+
+							query.Value = query.Value.Replace("${Userid}", $"'{userEntityId}'::uuid");
+							query.Value = query.Value.Replace("$P{Userid}", $"'{userEntityId}'::uuid");
+						}
 						queryResult = warehouseService.AdhocQuery(query.Value) as IEnumerable<ExpandoObject>;
 					}
 					catch (Exception e)
@@ -480,7 +516,6 @@ namespace OpenIZ.Reporting.Jasper
 
 					if (queryResult != null)
 					{
-
 						try
 						{
 							sourceDefinition.Items.AddRange(queryResult.Where(o => o.HasProperty(inputControl.ValueColumn)).Select(p => MapIdentifiedData(p, inputControl.ValueColumn, inputControl.VisibleColumns.FirstOrDefault())));
@@ -514,7 +549,15 @@ namespace OpenIZ.Reporting.Jasper
 		{
 			this.Authenticate(this.username, this.password);
 
-			var response = client.GetAsync($"{this.ReportUri}{JasperResourcesPath}?type=reportUnit").Result;
+			var url = $"{this.ReportUri}{JasperResourcesPath}?type=reportUnit";
+
+			if (!string.IsNullOrEmpty(FolderPath) && !string.IsNullOrWhiteSpace(FolderPath))
+			{
+				this.tracer.TraceEvent(TraceEventType.Verbose, 0, $"Mapping folder path: {this.FolderPath}");
+				url += $"&folderUri={FolderPath}";
+			}
+
+			var response = client.GetAsync(url).Result;
 
 			tracer.TraceEvent(TraceEventType.Information, 0, $"Jasper report server response: {response.Content}");
 
@@ -536,12 +579,12 @@ namespace OpenIZ.Reporting.Jasper
 
 			// HACK: remove existing reports to ensure we have the latest reports
 			// otherwise we'd need logic to reconcile which reports have been removed, updated etc.
-			var existingReports = reportDefinitionPersistenceService.Query(r => true, AuthenticationContext.Current.Principal);
+			//var existingReports = reportDefinitionPersistenceService.Query(r => true, AuthenticationContext.Current.Principal);
 
-			foreach (var reportDefinition in existingReports)
-			{
-				reportDefinitionPersistenceService.Obsolete(reportDefinition, AuthenticationContext.Current.Principal, TransactionMode.Commit);
-			}
+			//foreach (var reportDefinition in existingReports)
+			//{
+			//	reportDefinitionPersistenceService.Obsolete(reportDefinition, AuthenticationContext.Current.Principal, TransactionMode.Commit);
+			//}
 
 			var reports = new List<ReportDefinition>();
 
@@ -602,17 +645,26 @@ namespace OpenIZ.Reporting.Jasper
 
 				var existingReport = reportDefinitionPersistenceService.Query(r => r.CorrelationId == report.CorrelationId, 0, 1, AuthenticationContext.Current.Principal, out totalResults).FirstOrDefault();
 
+				// does the report already exist?
 				if (existingReport == null)
 				{
 					reportDefinitionPersistenceService.Insert(report, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 				}
 				else
 				{
+					// make sure the keys for the report formats map back to the report definition itself
+					report.Formats.ForEach(r => r.ReportDefinitionKey = existingReport.Key.Value);
+
+					// make sure the keys for the report parameters map back to the report definition itself
+					report.Parameters.ForEach(r => r.ReportDefinitionKey = existingReport.Key.Value);
+
+					// update the existing report information
 					existingReport.Formats = report.Formats;
 					existingReport.Parameters = report.Parameters;
 					existingReport.Description = report.Description;
 					existingReport.Name = report.Name;
 
+					// update the report definition
 					reportDefinitionPersistenceService.Update(existingReport, AuthenticationContext.Current.Principal, TransactionMode.Commit);
 				}
 			}
@@ -759,114 +811,6 @@ namespace OpenIZ.Reporting.Jasper
 		}
 
 		/// <summary>
-		/// Lookups the reference.
-		/// </summary>
-		/// <typeparam name="T"></typeparam>
-		/// <param name="referenceUri">The reference URI.</param>
-		/// <returns>T.</returns>
-		/// <exception cref="System.InvalidOperationException">Unable to lookup reference</exception>
-		private T LookupReference<T>(string referenceUri) where T : ReferenceBase, new()
-		{
-			var referenceResponse = client.GetAsync($"{this.ReportUri}{JasperResourcesPath}{referenceUri}").Result;
-
-			if (!referenceResponse.IsSuccessStatusCode)
-			{
-				throw new InvalidOperationException($"Unable to lookup resource: {referenceResponse.Content.ReadAsStreamAsync().Result}");
-			}
-
-			T reference;
-
-			using (var stream = referenceResponse.Content.ReadAsStreamAsync().Result)
-			{
-				var serializer = new XmlSerializer(typeof(T));
-
-				reference = (T)serializer.Deserialize(stream);
-			}
-
-			return reference;
-		}
-
-		/// <summary>
-		/// Lookups the resource.
-		/// </summary>
-		/// <typeparam name="T"></typeparam>
-		/// <param name="resourceUri">The resource URI.</param>
-		/// <returns>Returns the resource.</returns>
-		/// <exception cref="System.InvalidOperationException">Unable to lookup resource</exception>
-		private T LookupResource<T>(string resourceUri) where T : ResourceBase, new()
-		{
-			var resourceResponse = client.GetAsync($"{this.ReportUri}{JasperResourcesPath}{resourceUri}").Result;
-
-			if (!resourceResponse.IsSuccessStatusCode)
-			{
-				throw new InvalidOperationException($"Unable to lookup resource: {resourceResponse.Content.ReadAsStreamAsync().Result}");
-			}
-
-			T resource;
-
-			using (var stream = resourceResponse.Content.ReadAsStreamAsync().Result)
-			{
-				var serializer = new XmlSerializer(typeof(T));
-
-				resource = (T)serializer.Deserialize(stream);
-			}
-
-			return resource;
-		}
-
-		/// <summary>
-		/// Maps the identified data.
-		/// </summary>
-		/// <param name="expandoObject">The expando object.</param>
-		/// <param name="keyPropertyName">Name of the key property.</param>
-		/// <param name="valuePropertyName">Name of the value property.</param>
-		/// <returns>Return</returns>
-		private IdentifiedData MapIdentifiedData(ExpandoObject expandoObject, string keyPropertyName, string valuePropertyName = null)
-		{
-			var dictionary = expandoObject as IDictionary<string, object>;
-
-			IdentifiedData identifiedData = null;
-
-			if (dictionary.ContainsKey(keyPropertyName))
-			{
-				Guid key;
-
-				if (!Guid.TryParse(dictionary[keyPropertyName].ToString(), out key))
-				{
-					identifiedData = new Concept
-					{
-						Mnemonic = dictionary[keyPropertyName].ToString()
-					};
-				}
-				else
-				{
-					identifiedData = new Entity
-					{
-						Key = Guid.Parse(dictionary[keyPropertyName].ToString())
-					};
-
-					if (valuePropertyName != null && dictionary.ContainsKey(valuePropertyName))
-					{
-						((Entity)identifiedData).Names.Add(new EntityName(NameUseKeys.OfficialRecord, dictionary[valuePropertyName].ToString()));
-					}
-				}
-			}
-
-			return identifiedData;
-		}
-
-		/// <summary>
-		/// Handles the <see cref="E:Authenticated" /> event.
-		/// </summary>
-		/// <param name="sender">The sender.</param>
-		/// <param name="authenticatedEventArgs">The <see cref="AuthenticatedEventArgs"/> instance containing the event data.</param>
-		private void OnAuthenticated(object sender, AuthenticatedEventArgs authenticatedEventArgs)
-		{
-			this.AuthenticationResult = authenticatedEventArgs.AuthenticationResult;
-			this.cookieContainer.Add(new Cookie(JasperCookieKey, this.AuthenticationResult.Token) { Domain = JasperCookieKey });
-		}
-
-		/// <summary>
 		/// Runs a report.
 		/// </summary>
 		/// <param name="reportId">The id of the report.</param>
@@ -945,6 +889,21 @@ namespace OpenIZ.Reporting.Jasper
 		}
 
 		/// <summary>
+		/// Converts an object to a byte array.
+		/// </summary>
+		/// <param name="data">The data.</param>
+		/// <returns>Returns the object as a byte array.</returns>
+		public byte[] ToByteArray(object data)
+		{
+			var bf = new BinaryFormatter();
+			using (var ms = new MemoryStream())
+			{
+				bf.Serialize(ms, data);
+				return ms.ToArray();
+			}
+		}
+
+		/// <summary>
 		/// Updates a parameter type.
 		/// </summary>
 		/// <param name="parameterType">The updated parameter type.</param>
@@ -985,18 +944,126 @@ namespace OpenIZ.Reporting.Jasper
 		}
 
 		/// <summary>
-		/// Converts an object to a byte array.
+		/// Lookups the reference.
 		/// </summary>
-		/// <param name="data">The data.</param>
-		/// <returns>Returns the object as a byte array.</returns>
-		public byte[] ToByteArray(object data)
+		/// <typeparam name="T"></typeparam>
+		/// <param name="referenceUri">The reference URI.</param>
+		/// <returns>T.</returns>
+		/// <exception cref="System.InvalidOperationException">Unable to lookup reference</exception>
+		private T LookupReference<T>(string referenceUri) where T : ReferenceBase, new()
 		{
-			var bf = new BinaryFormatter();
-			using (var ms = new MemoryStream())
+			var referenceResponse = client.GetAsync($"{this.ReportUri}{JasperResourcesPath}{referenceUri}").Result;
+
+			if (!referenceResponse.IsSuccessStatusCode)
 			{
-				bf.Serialize(ms, data);
-				return ms.ToArray();
+				throw new InvalidOperationException($"Unable to lookup resource: {referenceResponse.Content.ReadAsStreamAsync().Result}");
 			}
+
+			T reference;
+
+			using (var stream = referenceResponse.Content.ReadAsStreamAsync().Result)
+			{
+				var serializer = new XmlSerializer(typeof(T));
+
+				reference = (T)serializer.Deserialize(stream);
+			}
+
+			return reference;
+		}
+
+		/// <summary>
+		/// Lookups the resource.
+		/// </summary>
+		/// <typeparam name="T"></typeparam>
+		/// <param name="resourceUri">The resource URI.</param>
+		/// <param name="parameters">The parameters.</param>
+		/// <returns>Returns the resource.</returns>
+		/// <exception cref="System.InvalidOperationException">Unable to lookup resource</exception>
+		private T LookupResource<T>(string resourceUri, IEnumerable<KeyValuePair<string, string>> parameters = null) where T : ResourceBase, new()
+		{
+			var url = $"{this.ReportUri}{JasperResourcesPath}{resourceUri}";
+
+			if (parameters?.Count() == 1)
+			{
+				url += "?" + parameters.First().Key + "=" + parameters.First().Value;
+			}
+			else
+			{
+				if (parameters?.Any() == true)
+				{
+					url = parameters.Aggregate(url, (current, parameter) => current + $"&{parameter.Key}={parameter.Value}");
+				}
+			}
+
+			var resourceResponse = client.GetAsync(url).Result;
+
+			if (!resourceResponse.IsSuccessStatusCode)
+			{
+				throw new InvalidOperationException($"Unable to lookup resource: {resourceResponse.Content.ReadAsStreamAsync().Result}");
+			}
+
+			T resource;
+
+			using (var stream = resourceResponse.Content.ReadAsStreamAsync().Result)
+			{
+				var serializer = new XmlSerializer(typeof(T));
+
+				resource = (T)serializer.Deserialize(stream);
+			}
+
+			return resource;
+		}
+
+		/// <summary>
+		/// Maps the identified data.
+		/// </summary>
+		/// <param name="expandoObject">The expando object.</param>
+		/// <param name="keyPropertyName">Name of the key property.</param>
+		/// <param name="valuePropertyName">Name of the value property.</param>
+		/// <returns>Return</returns>
+		private IdentifiedData MapIdentifiedData(ExpandoObject expandoObject, string keyPropertyName, string valuePropertyName = null)
+		{
+			var dictionary = expandoObject as IDictionary<string, object>;
+
+			IdentifiedData identifiedData = null;
+
+			if (dictionary.ContainsKey(keyPropertyName))
+			{
+				Guid key;
+
+				if (!Guid.TryParse(dictionary[keyPropertyName].ToString(), out key))
+				{
+					identifiedData = new Concept
+					{
+						Mnemonic = dictionary[keyPropertyName].ToString()
+					};
+				}
+				else
+				{
+					identifiedData = new Entity
+					{
+						Key = Guid.Parse(dictionary[keyPropertyName].ToString())
+					};
+
+					if (valuePropertyName != null && dictionary.ContainsKey(valuePropertyName))
+					{
+						((Entity)identifiedData).Names.Add(new EntityName(NameUseKeys.OfficialRecord, dictionary[valuePropertyName].ToString()));
+					}
+				}
+			}
+
+			return identifiedData;
+		}
+
+		/// <summary>
+		/// Handles the <see cref="E:Authenticated" /> event.
+		/// </summary>
+		/// <param name="sender">The sender.</param>
+		/// <param name="authenticatedEventArgs">The <see cref="AuthenticatedEventArgs"/> instance containing the event data.</param>
+		private void OnAuthenticated(object sender, AuthenticatedEventArgs authenticatedEventArgs)
+		{
+			this.AuthenticationResult = authenticatedEventArgs.AuthenticationResult;
+			this.cookieContainer.Add(new Cookie(JasperCookieKey, this.AuthenticationResult.Token) { Domain = JasperCookieKey });
 		}
 	}
 }

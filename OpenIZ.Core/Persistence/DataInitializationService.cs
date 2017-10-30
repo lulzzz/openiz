@@ -106,7 +106,9 @@ namespace OpenIZ.Core.Persistence
 
                     try
                     {
-                        this.ProgressChanged?.Invoke(this, new Services.ProgressChangedEventArgs(i++ / (float)ds.Action.Count, ds.Id));
+                        this.ProgressChanged?.Invoke(this, new Services.ProgressChangedEventArgs(i++ / (float)ds.Action.Count, itm.Element.ToString()));
+                        if (ApplicationContext.Current.GetService<IDataCachingService>()?.Size > 10000) // Probably a good idea to clear memcache
+                            ApplicationContext.Current.GetService<IDataCachingService>().Clear();
 
                         // IDP Type
                         Type idpType = typeof(IDataPersistenceService<>);
@@ -189,8 +191,9 @@ namespace OpenIZ.Core.Persistence
                         else if (!(itm is DataInsert))
                             typeof(IDataPersistenceService).GetMethod(itm.ActionName, new Type[] { typeof(Object) }).Invoke(idpInstance, new object[] { target });
                     }
-                    catch
+                    catch(Exception e)
                     {
+                        this.m_traceSource.TraceEvent(TraceEventType.Verbose, e.HResult, "There was an issue in the dataset file {0} : {1} ", ds.Id, e);
                         if (!itm.IgnoreErrors)
                             throw;
                     }
@@ -257,7 +260,7 @@ namespace OpenIZ.Core.Persistence
                     }
                     catch (Exception ex)
                     {
-                        this.m_traceSource.TraceEvent(TraceEventType.Error, ex.HResult, "Error applying {0}: {1}", f, ex);
+                        this.m_traceSource.TraceEvent(TraceEventType.Verbose, ex.HResult, "Error applying {0}: {1}", f, ex);
                         throw;
                     }
                 }

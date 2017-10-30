@@ -44,6 +44,6 @@ using System.Runtime.InteropServices;
 //
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
-// [assembly: AssemblyVersion("0.9.7.*")][assembly: AssemblyInformationalVersion("Edmonton CTP4")]
-[assembly: AssemblyVersion("0.9.7.*")][assembly: AssemblyInformationalVersion("Edmonton CTP4")]
-[assembly: AssemblyFileVersion("0.9.7.4")]
+// [assembly: AssemblyVersion("0.9.9.*")][assembly: AssemblyInformationalVersion("Fredericton CTP1")]
+[assembly: AssemblyVersion("0.9.9.*")][assembly: AssemblyInformationalVersion("Fredericton CTP1")]
+[assembly: AssemblyFileVersion("0.9.9.0")]
